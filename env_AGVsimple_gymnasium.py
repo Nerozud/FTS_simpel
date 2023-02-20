@@ -23,7 +23,7 @@ class PlantSimAGVsimple(gym.Env):
         #Plant Simulation Initialisierung
         self.PlantSim = win32.Dispatch("Tecnomatix.PlantSimulation.RemoteControl.22.1")
         self.PlantSim.SetLicenseType("Research")
-        self.PlantSim.loadmodel ("{}\\simulation_models\\AGV_simpel_2201.spp".format(mod_path))     
+        self.PlantSim.loadmodel ("{}\\simulation_models\\AGVS_simpel_2201.spp".format(mod_path))     
 
         #self.PlantSim.StartSimulation(".Modelle.Modell.Ereignisverwalter")
         #self.PlantSim.StopSimulation
