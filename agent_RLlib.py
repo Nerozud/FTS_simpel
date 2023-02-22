@@ -55,7 +55,6 @@ def test_trained_models_DQN():
     print(f"Episode reward: {episode_reward}")
 
 
-
 if __name__ == '__main__':
     
     # Init.

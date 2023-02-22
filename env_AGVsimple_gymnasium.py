@@ -37,7 +37,7 @@ class PlantSimAGVsimple(gym.Env):
         #Abwarten für vollständingen Ladevorgang
         time.sleep(5)
 
-        # PlantSim-Input definieren: Maschine 1 Belegt, Maschine 2 Belegt, AGV Buchungs-Position, AGV Geschwindigkeit, Anzahl der BEs auf AGV
+        # PlantSim-Input definieren: Station A Belegt, Station B Belegt, AGV Buchungs-Position, AGV Geschwindigkeit, Anzahl der BEs auf AGV
         #self.observation_space = np.array([0, 0, 0, 0, 0])
         self.observation_space = spaces.Box(
             low=np.array([0, 0, 0, -1, 0], dtype=np.float32),
