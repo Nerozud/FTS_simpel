@@ -37,12 +37,18 @@ class PlantSimAGVsimple(gym.Env):
         #Abwarten für vollständingen Ladevorgang
         time.sleep(5)
 
-        # PlantSim-Input definieren: Station A Belegt, Station B Belegt, AGV Buchungs-Position, AGV Geschwindigkeit, Anzahl der BEs auf AGV
+        # PlantSim-Input definieren: 
+            # 1 Station A Belegt, 
+            # 2 Station B Belegt, 
+            # 3 AGV 1 XPos,
+            # 4 AGV 1 YPos,
+            # 5 AGV 1 Geschwindigkeit, 
+            # 6 AGV 1 Zielort: 0 = void, 1 = Station A, 2 = Station B, 3 = Senke
         #self.observation_space = np.array([0, 0, 0, 0, 0])
         self.observation_space = spaces.Box(
-            low=np.array([0, 0, 0, -1, 0], dtype=np.float32),
-            high=np.array([1, 1, 14, 1, 6], dtype=np.float32), 
-            shape=(5, ), 
+            low=np.array([0, 0, 100, 120, -1, 0], dtype=np.float32),
+            high=np.array([7, 7, 798, 500, 1, 3], dtype=np.float32), 
+            shape=(6, ), 
             dtype=np.float32
         )
         # 0 Stop, 1 Vorwärts, 2 Rückwärts
@@ -60,8 +66,9 @@ class PlantSimAGVsimple(gym.Env):
         done = False
         truncated = False
 
-        alterWeg = self.PlantSim.GetValue(".BEs.Fahrzeug:1.StatWegstrecke")
-        alterDurchsatz = self.PlantSim.GetValue(".Modelle.Modell.Einzelstation2.StatAnzahlEin")
+        durchsatz_senke_alt = self.PlantSim.GetValue(".Modelle.Modell.Senke.StatAnzahlEin")
+        durchsatz_station_a_alt = self.PlantSim.GetValue(".Modelle.Modell.StationA.StatAnzahlEin")
+        durchsatz_station_b_alt = self.PlantSim.GetValue(".Modelle.Modell.StationB.StatAnzahlEin")
 
         # Actions: 0 - Angehalten, 1 - Vorwärts, 2 - Rückwärts
         if action == 0:
@@ -81,25 +88,43 @@ class PlantSimAGVsimple(gym.Env):
             if self.PlantSim.GetValue(".Modelle.Modell.Ereignisverwalter.SimulationGestartet") == False:
                 break
         
-        neuerWeg = self.PlantSim.GetValue(".BEs.Fahrzeug:1.StatWegstrecke")
-        neuerDurchsatz = self.PlantSim.GetValue(".Modelle.Modell.Einzelstation2.StatAnzahlEin")
-        Wegänderung = neuerWeg - alterWeg
-        Durchsatzänderung = neuerDurchsatz - alterDurchsatz
+        #neuen State abfragen
 
-        reward = Durchsatzänderung - Wegänderung * 0.01
-        #reward = Durchsatzänderung
+        state_mapping = {"Wartend": 0, "Arbeitend": 1, "Blockiert": 2, "Rüstend": 3,
+                        "Gestört": 4, "Angehalten": 5, "Pausiert": 6, "Ungeplant": 7}
+        station_a_val = state_mapping.get(self.PlantSim.GetValue(".Modelle.Modell.StationA.ResMomentanZustand"), -1)
+        station_b_val = state_mapping.get(self.PlantSim.GetValue(".Modelle.Modell.StationB.ResMomentanZustand"), -1)
 
+        zielort_mapping = {"": 0, "*.Modelle.Modell.StationA": 1, "*.Modelle.Modell.StationB": 2, "*.Modelle.Modell.Senke": 3}
+        zielort_value = self.PlantSim.GetValue(".BEs.Fahrzeug:1.Zielort")
+        if zielort_value is None: #Wenn Zielort kein String, leeren String draus machen
+            zielort_value = ""        
+        zielort = zielort_mapping.get(zielort_value if len(zielort_value) > 0 else "", -1) #Wenn Zielort leer ist, dann "" als Key verwenden
+        #print ("Zielort Get Value: ", self.PlantSim.GetValue(".BEs.Fahrzeug:1.Zielort"), "Zielort Mapping: ", zielort_value, zielort)
+
+        self.state = [station_a_val, 
+                      station_b_val, 
+                      self.PlantSim.GetValue(".BEs.Fahrzeug:1.XPos"),
+                      self.PlantSim.GetValue(".BEs.Fahrzeug:1.YPos"), 
+                      self.PlantSim.GetValue(".BEs.Fahrzeug:1.Momentangeschw"),
+                      zielort]    
+
+        durchsatz_senke_neu = self.PlantSim.GetValue(".Modelle.Modell.Senke.StatAnzahlEin")
+        durchsatz_station_a_neu = self.PlantSim.GetValue(".Modelle.Modell.StationA.StatAnzahlEin")
+        durchsatz_station_b_neu = self.PlantSim.GetValue(".Modelle.Modell.StationB.StatAnzahlEin")
+
+        #Reward berechnen
+        durchsatz_aenderung = durchsatz_senke_neu - durchsatz_senke_alt \
+                            + (durchsatz_station_a_neu - durchsatz_station_a_alt) * 0.1 \
+                            + (durchsatz_station_b_neu - durchsatz_station_b_alt) * 0.1
+        reward = durchsatz_aenderung
+
+        #Simulation beendet?
         self.simulation_over = self.PlantSim.GetValue(".Modelle.Modell.Episode_beendet")
         if self.simulation_over:
             done = True
             truncated = (self.Schrittanzahl < self.SchritteProEpisode)
-
-        self.state = [self.PlantSim.GetValue(".Modelle.Modell.Einzelstation1.Belegt"), 
-                      self.PlantSim.GetValue(".Modelle.Modell.Einzelstation2.Belegt"), 
-                      self.PlantSim.GetValue(".BEs.Fahrzeug:1.BuchPos"), 
-                      self.PlantSim.GetValue(".BEs.Fahrzeug:1.Momentangeschw"),
-                      self.PlantSim.GetValue(".BEs.Fahrzeug:1.AnzahlBEs")]
-        
+      
         return np.array(self.state).astype(np.float32), reward, done, truncated, {}
         
 
@@ -118,18 +143,31 @@ class PlantSimAGVsimple(gym.Env):
         while True:            
             if self.PlantSim.GetValue(".BEs.Fahrzeug.AnzahlKinder") == 0:
                break
-        #Simulation starten, um Fahrzeuge zu erzeugen
+        #Simulation starten, um Fahrzeuge zu erzeugen, folgende Befehle können verbessert werden
         self.PlantSim.StartSimulation(".Modelle.Modell.Ereignisverwalter")
         self.PlantSim.StopSimulation
         #Abwarten bis Fahrzeug existiert
         while True:            
             if self.PlantSim.GetValue(".BEs.Fahrzeug.AnzahlKinder") == 1:
                break
-        self.state = [self.PlantSim.GetValue(".Modelle.Modell.Einzelstation1.Belegt"), 
-                      self.PlantSim.GetValue(".Modelle.Modell.Einzelstation2.Belegt"), 
-                      self.PlantSim.GetValue(".BEs.Fahrzeug:1.BuchPos"), 
+
+        state_mapping = {"Wartend": 0, "Arbeitend": 1, "Blockiert": 2, "Rüstend": 3,
+                        "Gestört": 4, "Angehalten": 5, "Pausiert": 6, "Ungeplant": 7}
+        station_a_val = state_mapping.get(self.PlantSim.GetValue(".Modelle.Modell.StationA.ResMomentanZustand"), -1)
+        station_b_val = state_mapping.get(self.PlantSim.GetValue(".Modelle.Modell.StationB.ResMomentanZustand"), -1)
+
+        zielort_mapping = {"": 0, "*.Modelle.Modell.StationA": 1, "*.Modelle.Modell.StationB": 2, "*.Modelle.Modell.Senke": 3}
+        zielort_value = self.PlantSim.GetValue(".BEs.Fahrzeug:1.Zielort")
+        if zielort_value is None: #Wenn Zielort kein String, leeren String draus machen
+            zielort_value = ""        
+        zielort = zielort_mapping.get(zielort_value if len(zielort_value) > 0 else "", -1) #Wenn Zielort leer ist, dann "" als Key verwenden
+        #print ("Zielort: ", self.PlantSim.GetValue(".BEs.Fahrzeug:1.Zielort"))
+        self.state = [station_a_val, 
+                      station_b_val, 
+                      self.PlantSim.GetValue(".BEs.Fahrzeug:1.XPos"),
+                      self.PlantSim.GetValue(".BEs.Fahrzeug:1.YPos"), 
                       self.PlantSim.GetValue(".BEs.Fahrzeug:1.Momentangeschw"),
-                      self.PlantSim.GetValue(".BEs.Fahrzeug:1.AnzahlBEs",)]
+                      zielort]    
 
         info = {}
         #print ("Reset-State: ", self.state)

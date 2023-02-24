@@ -16,8 +16,8 @@ def tune_with_callback():
                 checkpoint_score_order="max",
                 checkpoint_score_attribute="episode_reward_mean",
                 num_to_keep=5),
-            stop={"episode_reward_mean": 50},
-            callbacks=[WandbLoggerCallback(project="test-project")]
+            stop={"episode_reward_mean": 50, "training_iteration": 1000000},
+            callbacks=[WandbLoggerCallback(project="agvs-simple")]
         ),
         param_space=config
     )
@@ -67,13 +67,14 @@ if __name__ == '__main__':
     from ray.rllib.algorithms.dqn.dqn import DQNConfig
     config = DQNConfig().environment(
         env="PlantSimAGVsimple").framework("torch").training(
-        replay_buffer_config={"type": "ReplayBuffer", "capacity": 60000}, 
+        replay_buffer_config={"type": "ReplayBuffer", 
+                                "capacity": tune.grid_search([50000, 100000, 1000000])}, 
         lr=tune.grid_search([0.0001, 0.0005, 0.001]))
 
 
     # Build.
     #algo = config.build()
-    #tune_with_callback()
+    tune_with_callback()
 
     # Test.
-    test_trained_models_DQN()
+    #test_trained_models_DQN()
