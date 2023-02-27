@@ -9,14 +9,13 @@ from ray.air import session
 def tune_with_callback():
     tuner = tune.Tuner(
         "DQN",
-        #train_function,
         run_config=air.RunConfig(
             local_dir="./trained_models",
             checkpoint_config=air.CheckpointConfig(
                 checkpoint_score_order="max",
                 checkpoint_score_attribute="episode_reward_mean",
                 num_to_keep=5),
-            stop={"episode_reward_mean": 50, "training_iteration": 1000000},
+            stop={"episode_reward_mean": 30, "timesteps_total": 1500000},
             callbacks=[WandbLoggerCallback(project="agvs-simple")]
         ),
         param_space=config
@@ -55,6 +54,39 @@ def test_trained_models_DQN():
     print(f"Episode reward: {episode_reward}")
 
 
+def get_dqn_config():
+    from ray.rllib.algorithms.dqn.dqn import DQNConfig
+    config = DQNConfig().environment(
+        env="PlantSimAGVsimple").framework("torch").training(
+        replay_buffer_config={"type": "ReplayBuffer", 
+                                "capacity": tune.grid_search([50000, 100000, 1000000])}, 
+        lr=tune.grid_search([0.0001, 0.0005, 0.001]))
+    return config
+
+def get_rainbow_config():
+    from ray.rllib.algorithms.dqn.dqn import DQNConfig
+    config = DQNConfig().environment(
+        env="PlantSimAGVsimple").framework("torch").training(
+        n_step=tune.grid_search([1, 3, 5]),
+        noisy=True,
+        num_atoms=tune.grid_search([1, 4, 8]),
+        v_min=tune.grid_search([-100.0, -10.0, -1.0]),
+        v_max=tune.grid_search([100.0, 10.0, 1.0]),
+        lr=0.0001)
+    return config
+
+def get_rainbow_one_run_config():
+    from ray.rllib.algorithms.dqn.dqn import DQNConfig
+    config = DQNConfig().environment(
+        env="PlantSimAGVsimple").framework("torch").training(
+        n_step=3,
+        noisy=True,
+        num_atoms= 4,
+        v_min= -10.0,
+        v_max= 10.0,
+        lr=0.0001)
+    return config
+
 if __name__ == '__main__':
     
     # Init.
@@ -64,17 +96,15 @@ if __name__ == '__main__':
     ray.init()
 
     # Configure.
-    from ray.rllib.algorithms.dqn.dqn import DQNConfig
-    config = DQNConfig().environment(
-        env="PlantSimAGVsimple").framework("torch").training(
-        replay_buffer_config={"type": "ReplayBuffer", 
-                                "capacity": tune.grid_search([50000, 100000, 1000000])}, 
-        lr=tune.grid_search([0.0001, 0.0005, 0.001]))
+    config = get_rainbow_config()
 
-
-    # Build.
-    #algo = config.build()
+    # Tune. Für Hyperparametersuche mit tune
     tune_with_callback()
+
+    # Build & Train. Einfach einen Algorithmus erstellen und trainieren
+    # algo = config.build()
+    # while True:
+    #     print(algo.train())
 
     # Test.
     #test_trained_models_DQN()

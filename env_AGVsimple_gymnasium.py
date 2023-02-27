@@ -31,6 +31,8 @@ class PlantSimAGVsimple(gym.Env):
         #Gesamtzahl der Schritte pro Episode
         self.SchritteProEpisode = 1010
         self.PlantSim.SetValue(".Modelle.Modell.SchritteproEpisode", self.SchritteProEpisode)
+        #self.PlantSim.SetValue(".Modelle.Modell.PythonAnbindung", 1)
+        self.PlantSim.ExecuteSimTalk(".Modelle.Modell.Pythonanbindung:=true")
         #Zähler für Schritte pro Episode
         self.Schrittanzahl = 0
         
@@ -40,15 +42,19 @@ class PlantSimAGVsimple(gym.Env):
         # PlantSim-Input definieren: 
             # 1 Station A Belegt, 
             # 2 Station B Belegt, 
-            # 3 AGV 1 XPos,
-            # 4 AGV 1 YPos,
-            # 5 AGV 1 Geschwindigkeit, 
-            # 6 AGV 1 Zielort: 0 = void, 1 = Station A, 2 = Station B, 3 = Senke
+            # 3 Puffer1 AnzahlBEs
+            # 4 Puffer2 AnzahlBEs
+            # 5 AGV 1 XPos,
+            # 6 AGV 1 YPos,
+            # 7 AGV 1 Geschwindigkeit, 
+            # 8 AGV 1 Zielort: 0 = void, 1 = Station A, 2 = Station B, 3 = Senke
+            # 9 AGV 1 Inhalt: 0 = beladen, 1 = leer
+
         #self.observation_space = np.array([0, 0, 0, 0, 0])
         self.observation_space = spaces.Box(
-            low=np.array([0, 0, 100, 120, -1, 0], dtype=np.float32),
-            high=np.array([7, 7, 798, 500, 1, 3], dtype=np.float32), 
-            shape=(6, ), 
+            low=np.array([0, 0, 0, 0, 100, 120, -1, 0, 0], dtype=np.float32),
+            high=np.array([7, 7, 8, 8, 798, 500, 1, 3, 1], dtype=np.float32), 
+            shape=(9, ), 
             dtype=np.float32
         )
         # 0 Stop, 1 Vorwärts, 2 Rückwärts
@@ -103,11 +109,14 @@ class PlantSimAGVsimple(gym.Env):
         #print ("Zielort Get Value: ", self.PlantSim.GetValue(".BEs.Fahrzeug:1.Zielort"), "Zielort Mapping: ", zielort_value, zielort)
 
         self.state = [station_a_val, 
-                      station_b_val, 
+                      station_b_val,
+                      self.PlantSim.GetValue(".Modelle.Modell.Puffer1.AnzahlBEs"),
+                      self.PlantSim.GetValue(".Modelle.Modell.Puffer2.AnzahlBEs"),
                       self.PlantSim.GetValue(".BEs.Fahrzeug:1.XPos"),
                       self.PlantSim.GetValue(".BEs.Fahrzeug:1.YPos"), 
                       self.PlantSim.GetValue(".BEs.Fahrzeug:1.Momentangeschw"),
-                      zielort]    
+                      zielort,
+                      self.PlantSim.GetValue(".BEs.Fahrzeug:1.leer")]    
 
         durchsatz_senke_neu = self.PlantSim.GetValue(".Modelle.Modell.Senke.StatAnzahlEin")
         durchsatz_station_a_neu = self.PlantSim.GetValue(".Modelle.Modell.StationA.StatAnzahlEin")
@@ -163,11 +172,14 @@ class PlantSimAGVsimple(gym.Env):
         zielort = zielort_mapping.get(zielort_value if len(zielort_value) > 0 else "", -1) #Wenn Zielort leer ist, dann "" als Key verwenden
         #print ("Zielort: ", self.PlantSim.GetValue(".BEs.Fahrzeug:1.Zielort"))
         self.state = [station_a_val, 
-                      station_b_val, 
+                      station_b_val,
+                      self.PlantSim.GetValue(".Modelle.Modell.Puffer1.AnzahlBEs"),
+                      self.PlantSim.GetValue(".Modelle.Modell.Puffer2.AnzahlBEs"),
                       self.PlantSim.GetValue(".BEs.Fahrzeug:1.XPos"),
                       self.PlantSim.GetValue(".BEs.Fahrzeug:1.YPos"), 
                       self.PlantSim.GetValue(".BEs.Fahrzeug:1.Momentangeschw"),
-                      zielort]    
+                      zielort,
+                      self.PlantSim.GetValue(".BEs.Fahrzeug:1.leer")]     
 
         info = {}
         #print ("Reset-State: ", self.state)
