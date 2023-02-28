@@ -64,7 +64,7 @@ def get_dqn_config():
         env="PlantSimAGVsimple").framework("torch").training(
         # replay_buffer_config={"type": "ReplayBuffer", 
         #                         "capacity": tune.grid_search([50000, 100000, 1000000])}, 
-        lr=tune.grid_search([0.00001, 0.00005, 0.0001]))
+        lr=tune.grid_search([0.00001, 0.00005, 0.0001, 0.0005]))
     return config
 
 def get_rainbow_config():
