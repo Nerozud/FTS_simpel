@@ -9,6 +9,10 @@ from ray.air import session
 def tune_with_callback():
     tuner = tune.Tuner(
         "DQN",
+        tune_config=tune.TuneConfig(
+            #max_concurrent_trials = 6,
+            num_samples = 4,
+        ),
         run_config=air.RunConfig(
             local_dir="./trained_models",
             checkpoint_config=air.CheckpointConfig(
@@ -58,9 +62,9 @@ def get_dqn_config():
     from ray.rllib.algorithms.dqn.dqn import DQNConfig
     config = DQNConfig().environment(
         env="PlantSimAGVsimple").framework("torch").training(
-        replay_buffer_config={"type": "ReplayBuffer", 
-                                "capacity": tune.grid_search([50000, 100000, 1000000])}, 
-        lr=tune.grid_search([0.0001, 0.0005, 0.001]))
+        # replay_buffer_config={"type": "ReplayBuffer", 
+        #                         "capacity": tune.grid_search([50000, 100000, 1000000])}, 
+        lr=tune.grid_search([0.00001, 0.00005, 0.0001]))
     return config
 
 def get_rainbow_config():
@@ -96,7 +100,7 @@ if __name__ == '__main__':
     ray.init()
 
     # Configure.
-    config = get_rainbow_config()
+    config = get_dqn_config()
 
     # Tune. Für Hyperparametersuche mit tune
     tune_with_callback()
