@@ -1,17 +1,16 @@
-from env_AGVsimple_gymnasium import PlantSimAGVsimple
+from env_AGVsimple_multiagent import PlantSimAGVMA
 
 import ray
 from ray import tune, air
 from ray.tune.registry import register_env
 from ray.air.integrations.wandb import WandbLoggerCallback
-from ray.air import session
 
 def tune_with_callback():
     tuner = tune.Tuner(
         "DQN",
         tune_config=tune.TuneConfig(
             #max_concurrent_trials = 6,
-            num_samples = 4,
+            num_samples = 1,
         ),
         run_config=air.RunConfig(
             local_dir="./trained_models",
@@ -64,7 +63,8 @@ def get_dqn_config():
         env="PlantSimAGVsimple").framework("torch").training(
         # replay_buffer_config={"type": "ReplayBuffer", 
         #                         "capacity": tune.grid_search([50000, 100000, 1000000])}, 
-        lr=tune.grid_search([0.00001, 0.00005, 0.0001, 0.0005]))
+        #lr=tune.grid_search([0.00001, 0.00005, 0.0001, 0.0005]))
+        lr=0.0001)
     return config
 
 def get_rainbow_config():
@@ -95,8 +95,8 @@ if __name__ == '__main__':
     
     # Init.
     def env_creator(env_config):
-        return PlantSimAGVsimple()  # return an env instance
-    register_env("PlantSimAGVsimple", env_creator)
+        return PlantSimAGVMA(env_config.get("num_agents", 2))  # return an env instance
+    register_env("PlantSimAGVMA", env_creator)
     ray.init()
 
     # Configure.
