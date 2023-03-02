@@ -67,10 +67,9 @@ def get_dqn_config():
     return config
 
 def get_dqn_multiagent_config():
-    from ray.rllib.agents.dqn.dqn import DQNConfig
+    from ray.rllib.algorithms.dqn.dqn import DQNConfig
     config = DQNConfig().environment(
-        env="PlantSimAGVMA",
-        env_config={"num_agents": 2}).framework("torch").training(
+        env="PlantSimAGVMA", env_config={"num_agents":2}).framework("torch").training(
         # replay_buffer_config={"type": "ReplayBuffer", 
         #                         "capacity": tune.grid_search([50000, 100000, 1000000])}, 
         lr=tune.grid_search([0.0001, 0.0005])).multiagent(policies={
@@ -108,7 +107,11 @@ if __name__ == '__main__':
     
     # Init.
     def env_creator(env_config):
-        return PlantSimAGVMA()  # return an env instance
+        # Get the num_agents parameter from env_config
+        num_agents = env_config.get("num_agents")
+        # Return an instance of the environment with num_agents parameter
+        return PlantSimAGVMA(num_agents=num_agents)
+
     register_env("PlantSimAGVMA", env_creator)
     ray.init()
 

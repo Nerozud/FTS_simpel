@@ -32,7 +32,7 @@ class PlantSimAGVMA(MultiAgentEnv):
         self.SchritteProEpisode = 1010
         self.PlantSim.SetValue(".Modelle.Modell.SchritteproEpisode", self.SchritteProEpisode)
         self.PlantSim.ExecuteSimTalk(".Modelle.Modell.Pythonanbindung:=true")
-        self.PlantSim.SetValue(".Modelle.Modell.anzahl_agenten", self.num_agents)
+        self.PlantSim.ExecuteSimTalk(f".Modelle.Modell.anzahl_agenten := {self.num_agents}")
         #Zähler für Schritte pro Episode
         self.Schrittanzahl = 0
         
