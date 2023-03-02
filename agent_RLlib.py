@@ -63,8 +63,21 @@ def get_dqn_config():
         env="PlantSimAGVsimple").framework("torch").training(
         # replay_buffer_config={"type": "ReplayBuffer", 
         #                         "capacity": tune.grid_search([50000, 100000, 1000000])}, 
-        #lr=tune.grid_search([0.00001, 0.00005, 0.0001, 0.0005]))
-        lr=0.0001)
+        lr=tune.grid_search([0.00001, 0.00005, 0.0001, 0.0005]))        
+    return config
+
+def get_dqn_multiagent_config():
+    from ray.rllib.agents.dqn.dqn import DQNConfig
+    config = DQNConfig().environment(
+        env="PlantSimAGVMA",
+        env_config={"num_agents": 2}).framework("torch").training(
+        # replay_buffer_config={"type": "ReplayBuffer", 
+        #                         "capacity": tune.grid_search([50000, 100000, 1000000])}, 
+        lr=tune.grid_search([0.0001, 0.0005])).multiagent(policies={
+            "policy_0": (None, env_creator({}).observation_space, env_creator({}).action_space, {}),
+            "policy_1": (None, env_creator({}).observation_space, env_creator({}).action_space, {}),
+        }, policy_mapping_fn=lambda agent_id: agent_id)
+                
     return config
 
 def get_rainbow_config():
@@ -95,12 +108,12 @@ if __name__ == '__main__':
     
     # Init.
     def env_creator(env_config):
-        return PlantSimAGVMA(env_config.get("num_agents", 2))  # return an env instance
+        return PlantSimAGVMA()  # return an env instance
     register_env("PlantSimAGVMA", env_creator)
     ray.init()
 
     # Configure.
-    config = get_dqn_config()
+    config = get_dqn_multiagent_config()
 
     # Tune. Für Hyperparametersuche mit tune
     tune_with_callback()
