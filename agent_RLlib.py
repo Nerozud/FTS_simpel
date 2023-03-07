@@ -13,7 +13,7 @@ def tune_with_callback():
         "DQN",
         tune_config=tune.TuneConfig(
             #max_concurrent_trials = 6,
-            num_samples = 3,
+            num_samples = 1,
         ),
         run_config=air.RunConfig(
             local_dir="./trained_models",
@@ -21,7 +21,7 @@ def tune_with_callback():
                 checkpoint_score_order="max",
                 checkpoint_score_attribute="episode_reward_mean",
                 num_to_keep=5),
-            stop={"episode_reward_mean": 30, "timesteps_total": 1500000},
+            stop={"episode_reward_mean": 30, "timesteps_total": 2000000},
             callbacks=[WandbLoggerCallback(project="agvs-simple")]
         ),
         param_space=config
@@ -73,9 +73,9 @@ def get_dqn_multiagent_config():
     from ray.rllib.algorithms.dqn.dqn import DQNConfig
     config = DQNConfig().environment(
         env="PlantSimAGVMA", env_config={"num_agents": 2}).framework("torch").training(
-        # replay_buffer_config={"type": "ReplayBuffer", 
-        #                         "capacity": tune.grid_search([50000, 100000, 1000000])}, 
-        lr=tune.grid_search([0.0001, 0.0005])).multi_agent(policies={"agv_policy": (None, None, None, {})} ,
+        replay_buffer_config={"type": "ReplayBuffer", 
+                                "capacity": tune.grid_search([100000, 1000000])}, 
+        lr=tune.grid_search([0.00005, 0.0001, 0.0005])).multi_agent(policies={"agv_policy": (None, None, None, {})} ,
                                                            policy_mapping_fn=lambda agent_id, episode, worker, **kwargs: "agv_policy")
     return config
 

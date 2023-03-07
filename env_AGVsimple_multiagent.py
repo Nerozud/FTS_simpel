@@ -124,21 +124,38 @@ class PlantSimAGVMA(MultiAgentEnv):
                 break
         
         #neuen State abfragen
-
         obs = self.get_observation()
 
+        #neuen State auswerten; wenn Durchsatz gestiegen ist, dann richtiges Fahrzeug zuweisen; Kollisionen bestraft derzeitig (noch) alle
         durchsatz_senke_neu = self.PlantSim.GetValue(".Modelle.Modell.Senke.StatAnzahlEin")
+        
+        durchsatz_senke_änderung_agent_id = -1
+        durchsatz_station_a_änderung_agent_id = -1
+        durchsatz_station_b_änderung_agent_id = -1
+
+        if durchsatz_senke_neu > durchsatz_senke_alt:
+            durchsatz_senke_änderung_agent_id = self.PlantSim.GetValue(".Modelle.Modell.senke_letztes_fahrzeugID") - 1
         durchsatz_station_a_neu = self.PlantSim.GetValue(".Modelle.Modell.StationA.StatAnzahlEin")
+        if durchsatz_station_a_neu > durchsatz_station_a_alt: 
+            durchsatz_station_a_änderung_agent_id = self.PlantSim.GetValue(".Modelle.Modell.stationA_letztes_fahrzeugID") - 1
         durchsatz_station_b_neu = self.PlantSim.GetValue(".Modelle.Modell.StationB.StatAnzahlEin")
+        if durchsatz_station_b_neu > durchsatz_station_b_alt: 
+            durchsatz_station_b_änderung_agent_id = self.PlantSim.GetValue(".Modelle.Modell.stationB_letztes_fahrzeugID") - 1
         anzahl_kollisionen_neu = self.PlantSim.GetValue(".Modelle.Modell.anzahl_kollisionen")
 
         #Reward berechnen
-        reward = durchsatz_senke_neu - durchsatz_senke_alt \
-                + (durchsatz_station_a_neu - durchsatz_station_a_alt) * 0.1 \
-                + (durchsatz_station_b_neu - durchsatz_station_b_alt) * 0.1 \
-                - (anzahl_kollisionen_neu - anzahl_kollisionen_alt)
+        rewards = {}
+        for i in range(self.num_agents):
+            reward = 0
+            if i == durchsatz_senke_änderung_agent_id:
+                reward += durchsatz_senke_neu - durchsatz_senke_alt            
+            if i == durchsatz_station_a_änderung_agent_id:
+                reward += (durchsatz_station_a_neu - durchsatz_station_a_alt) * 0.1
+            if i == durchsatz_station_b_änderung_agent_id:
+                reward += (durchsatz_station_b_neu - durchsatz_station_b_alt) * 0.1
+            reward -= (anzahl_kollisionen_neu - anzahl_kollisionen_alt)
         
-        rewards = {f"agent_{i}": reward for i in range(self.num_agents)}
+            rewards[f"agent_{i}"] = reward
 
         #Simulation beendet?
         self.simulation_over = self.PlantSim.GetValue(".Modelle.Modell.Episode_beendet")
