@@ -16,10 +16,10 @@ class PlantSimAGVMA(MultiAgentEnv):
 
     metadata = {"render.modes": ["human"]}    
     
-    def __init__(self, num_agents):
+    def __init__(self, env_config):
         """Initialisierung der Simulation"""
         super().__init__()
-        self.num_agents = num_agents
+        self.num_agents = env_config["num_agents"]
         #Plant Simulation Initialisierung
         self.PlantSim = win32.Dispatch("Tecnomatix.PlantSimulation.RemoteControl.22.1")
         self.PlantSim.SetLicenseType("Research")
@@ -58,20 +58,28 @@ class PlantSimAGVMA(MultiAgentEnv):
         # The low and high values for the AGV specific inputs are tiled according to the number of agents
         # The shape of each observation is set to the agent_obs_shape defined earlier
         # The dtype is set to np.float32
-        self.observation_space = gym.spaces.Dict({
-            f"agent_{i}": spaces.Box(
+
+        self.observation_space = spaces.Box(
                 low=np.concatenate([[0, 0, 0, 0], np.tile([100, 120, -1, 0, 0], self.num_agents)]),
                 high=np.concatenate([[7, 7, 8, 8], np.tile([798, 500, 1, 3, 1], self.num_agents)]),
                 shape=agent_obs_shape,
-                dtype=np.float32
-            ) for i in range(self.num_agents)
-        })
+                dtype=np.float32)
+        
+        # self.observation_space = gym.spaces.Dict({
+        #     f"agent_{i}": spaces.Box(
+        #         low=np.concatenate([[0, 0, 0, 0], np.tile([100, 120, -1, 0, 0], self.num_agents)]),
+        #         high=np.concatenate([[7, 7, 8, 8], np.tile([798, 500, 1, 3, 1], self.num_agents)]),
+        #         shape=agent_obs_shape,
+        #         dtype=np.float32
+        #     ) for i in range(self.num_agents)
+        # })
 
         # Define action space for each agent
         # 0 Stop, 1 Vorwärts, 2 Rückwärts                
-        self.action_space = gym.spaces.Dict({
-            f"agent_{i}": spaces.Discrete(3) for i in range(self.num_agents)
-        })
+        # self.action_space = gym.spaces.Dict({
+        #     f"agent_{i}": spaces.Discrete(3) for i in range(self.num_agents)
+        # })
+        self.action_space = gym.spaces.Discrete(3)
 
     def seed (self, seed=None):        
         """Setzen der Zufallszahlengenerator-Seed"""
@@ -96,8 +104,7 @@ class PlantSimAGVMA(MultiAgentEnv):
 
         # Execute actions for each agent
         # Actions: 0 - Angehalten, 1 - Vorwärts, 2 - Rückwärts
-        for agent_name, action in enumerate(actions.values()):
-            i = int(agent_name.split("_")[1])
+        for i, action in enumerate(actions.values()):
             if action == 0:
                 self.PlantSim.ExecuteSimTalk(f".BEs.Fahrzeug:{i+1}.Angehalten:=true")
             elif action == 1:
@@ -106,6 +113,7 @@ class PlantSimAGVMA(MultiAgentEnv):
             elif action == 2:
                 self.PlantSim.ExecuteSimTalk(f".BEs.Fahrzeug:{i+1}.Rückwärts:=true")
                 self.PlantSim.ExecuteSimTalk(f".BEs.Fahrzeug:{i+1}.Angehalten:=false")
+
 
         #Simulationsschritt starten und nach Schrittzeit 1 s wieder stoppen
         self.PlantSim.ExecuteSimTalk(".Modelle.Modell.StepPython")
@@ -143,10 +151,11 @@ class PlantSimAGVMA(MultiAgentEnv):
 
 
         # set the info dictionary
-        info = {"durchsatz_senke": durchsatz_senke_neu,
-                "durchsatz_station_a": durchsatz_station_a_neu,
-                "durchsatz_station_b": durchsatz_station_b_neu,
-                "anzahl_kollisionen": anzahl_kollisionen_neu}
+        info = {}
+        # info = {"durchsatz_senke": durchsatz_senke_neu,
+        #         "durchsatz_station_a": durchsatz_station_a_neu,
+        #         "durchsatz_station_b": durchsatz_station_b_neu,
+        #         "anzahl_kollisionen": anzahl_kollisionen_neu}
 
         return obs, rewards, done, truncated, info
 

@@ -1,16 +1,19 @@
 from env_AGVsimple_multiagent import PlantSimAGVMA
+from env_AGVsimple_gymnasium import PlantSimAGVsimple
 
 import ray
 from ray import tune, air
 from ray.tune.registry import register_env
 from ray.air.integrations.wandb import WandbLoggerCallback
 
+from ray.rllib.examples.env.multi_agent import MultiAgentCartPole
+
 def tune_with_callback():
     tuner = tune.Tuner(
         "DQN",
         tune_config=tune.TuneConfig(
             #max_concurrent_trials = 6,
-            num_samples = 1,
+            num_samples = 3,
         ),
         run_config=air.RunConfig(
             local_dir="./trained_models",
@@ -69,14 +72,11 @@ def get_dqn_config():
 def get_dqn_multiagent_config():
     from ray.rllib.algorithms.dqn.dqn import DQNConfig
     config = DQNConfig().environment(
-        env="PlantSimAGVMA", env_config={"num_agents":2}).framework("torch").training(
+        env="PlantSimAGVMA", env_config={"num_agents": 2}).framework("torch").training(
         # replay_buffer_config={"type": "ReplayBuffer", 
         #                         "capacity": tune.grid_search([50000, 100000, 1000000])}, 
-        lr=tune.grid_search([0.0001, 0.0005])).multiagent(policies={
-            "policy_0": (None, env_creator({}).observation_space, env_creator({}).action_space, {}),
-            "policy_1": (None, env_creator({}).observation_space, env_creator({}).action_space, {}),
-        }, policy_mapping_fn=lambda agent_id: agent_id)
-                
+        lr=tune.grid_search([0.0001, 0.0005])).multi_agent(policies={"agv_policy": (None, None, None, {})} ,
+                                                           policy_mapping_fn=lambda agent_id, episode, worker, **kwargs: "agv_policy")
     return config
 
 def get_rainbow_config():
@@ -107,10 +107,7 @@ if __name__ == '__main__':
     
     # Init.
     def env_creator(env_config):
-        # Get the num_agents parameter from env_config
-        num_agents = env_config.get("num_agents")
-        # Return an instance of the environment with num_agents parameter
-        return PlantSimAGVMA(num_agents=num_agents)
+        return PlantSimAGVMA(env_config)
 
     register_env("PlantSimAGVMA", env_creator)
     ray.init()
@@ -128,3 +125,4 @@ if __name__ == '__main__':
 
     # Test.
     #test_trained_models_DQN()
+ 
