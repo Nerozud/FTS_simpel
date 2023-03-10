@@ -23,7 +23,7 @@ class PlantSimAGVMA(MultiAgentEnv):
         #Plant Simulation Initialisierung
         self.PlantSim = win32.Dispatch("Tecnomatix.PlantSimulation.RemoteControl.22.1")
         self.PlantSim.SetLicenseType("Research")
-        self.PlantSim.loadmodel ("{}\\simulation_models\\AGVS_simpel_2201.spp".format(mod_path))     
+        self.PlantSim.loadmodel ("{}\\simulation_models\\AGVS_simpel_2203.spp".format(mod_path))     
 
         #self.PlantSim.StartSimulation(".Modelle.Modell.Ereignisverwalter")
         #self.PlantSim.StopSimulation
@@ -40,18 +40,19 @@ class PlantSimAGVMA(MultiAgentEnv):
         time.sleep(5)
 
         # PlantSim-Input definieren: 
-            # 1 Station A Belegt, 
-            # 2 Station B Belegt, 
-            # 3 Puffer1 AnzahlBEs
-            # 4 Puffer2 AnzahlBEs
-            # 5 AGV 1 XPos,
-            # 6 AGV 1 YPos,
-            # 7 AGV 1 Geschwindigkeit, 
-            # 8 AGV 1 Zielort: 0 = void, 1 = Station A, 2 = Station B, 3 = Senke
-            # 9 AGV 1 Inhalt: 0 = beladen, 1 = leer
+            # 1 ID des betrachteten Agenten, beginnend bei 0
+            # 2 Station A Belegt, 
+            # 3 Station B Belegt, 
+            # 4 Puffer1 AnzahlBEs
+            # 5 Puffer2 AnzahlBEs
+            # 6 AGV 1 XPos,
+            # 7 AGV 1 YPos,
+            # 8 AGV 1 Geschwindigkeit, 
+            # 9 AGV 1 Zielort: 0 = void, 1 = Station A, 2 = Station B, 3 = Senke
+            # 10 AGV 1 Inhalt: 0 = beladen, 1 = leer
 
         # Define the observation shape for each agent
-        agent_obs_shape = (4 + 5 * self.num_agents,)
+        agent_obs_shape = (5 + 5 * self.num_agents,)
 
         # Define the observation space as a dictionary mapping agent names to their observations
         # The observations are defined as Box spaces with low and high values for each input
@@ -60,8 +61,8 @@ class PlantSimAGVMA(MultiAgentEnv):
         # The dtype is set to np.float32
 
         self.observation_space = spaces.Box(
-                low=np.concatenate([[0, 0, 0, 0], np.tile([100, 120, -1, 0, 0], self.num_agents)]),
-                high=np.concatenate([[7, 7, 8, 8], np.tile([798, 500, 1, 3, 1], self.num_agents)]),
+                low=np.concatenate([[0, 0, 0, 0, 0], np.tile([100, 120, -1, 0, 0], self.num_agents)]),
+                high=np.concatenate([[self.num_agents - 1, 7, 7, 8, 8], np.tile([798, 500, 1, 5, 1], self.num_agents)]),
                 shape=agent_obs_shape,
                 dtype=np.float32)
         
@@ -94,10 +95,10 @@ class PlantSimAGVMA(MultiAgentEnv):
         
         truncated = False
 
-        durchsatz_senke_alt = self.PlantSim.GetValue(".Modelle.Modell.Senke.StatAnzahlEin")
-        durchsatz_station_a_alt = self.PlantSim.GetValue(".Modelle.Modell.StationA.StatAnzahlEin")
-        durchsatz_station_b_alt = self.PlantSim.GetValue(".Modelle.Modell.StationB.StatAnzahlEin")
-        anzahl_kollisionen_alt = self.PlantSim.GetValue(".Modelle.Modell.anzahl_kollisionen")
+        # durchsatz_senke_alt = self.PlantSim.GetValue(".Modelle.Modell.Senke.StatAnzahlEin")
+        # durchsatz_station_a_alt = self.PlantSim.GetValue(".Modelle.Modell.StationA.StatAnzahlEin")
+        # durchsatz_station_b_alt = self.PlantSim.GetValue(".Modelle.Modell.StationB.StatAnzahlEin")
+        # anzahl_kollisionen_alt = self.PlantSim.GetValue(".Modelle.Modell.anzahl_kollisionen")
     
         # Check that actions are provided for all agents
         assert set(actions.keys()) == set([f"agent_{i}" for i in range(self.num_agents)])
@@ -127,33 +128,35 @@ class PlantSimAGVMA(MultiAgentEnv):
         obs = self.get_observation()
 
         #neuen State auswerten; wenn Durchsatz gestiegen ist, dann richtiges Fahrzeug zuweisen; Kollisionen bestraft derzeitig (noch) alle
-        durchsatz_senke_neu = self.PlantSim.GetValue(".Modelle.Modell.Senke.StatAnzahlEin")
+        # durchsatz_senke_neu = self.PlantSim.GetValue(".Modelle.Modell.Senke.StatAnzahlEin")
         
-        durchsatz_senke_änderung_agent_id = -1
-        durchsatz_station_a_änderung_agent_id = -1
-        durchsatz_station_b_änderung_agent_id = -1
+        # durchsatz_senke_änderung_agent_id = -1
+        # durchsatz_station_a_änderung_agent_id = -1
+        # durchsatz_station_b_änderung_agent_id = -1
 
-        if durchsatz_senke_neu > durchsatz_senke_alt:
-            durchsatz_senke_änderung_agent_id = self.PlantSim.GetValue(".Modelle.Modell.senke_letztes_fahrzeugID") - 1
-        durchsatz_station_a_neu = self.PlantSim.GetValue(".Modelle.Modell.StationA.StatAnzahlEin")
-        if durchsatz_station_a_neu > durchsatz_station_a_alt: 
-            durchsatz_station_a_änderung_agent_id = self.PlantSim.GetValue(".Modelle.Modell.stationA_letztes_fahrzeugID") - 1
-        durchsatz_station_b_neu = self.PlantSim.GetValue(".Modelle.Modell.StationB.StatAnzahlEin")
-        if durchsatz_station_b_neu > durchsatz_station_b_alt: 
-            durchsatz_station_b_änderung_agent_id = self.PlantSim.GetValue(".Modelle.Modell.stationB_letztes_fahrzeugID") - 1
-        anzahl_kollisionen_neu = self.PlantSim.GetValue(".Modelle.Modell.anzahl_kollisionen")
+        # if durchsatz_senke_neu > durchsatz_senke_alt:
+        #     durchsatz_senke_änderung_agent_id = self.PlantSim.GetValue(".Modelle.Modell.senke_letztes_fahrzeugID") - 1
+        # durchsatz_station_a_neu = self.PlantSim.GetValue(".Modelle.Modell.StationA.StatAnzahlEin")
+        # if durchsatz_station_a_neu > durchsatz_station_a_alt: 
+        #     durchsatz_station_a_änderung_agent_id = self.PlantSim.GetValue(".Modelle.Modell.stationA_letztes_fahrzeugID") - 1
+        # durchsatz_station_b_neu = self.PlantSim.GetValue(".Modelle.Modell.StationB.StatAnzahlEin")
+        # if durchsatz_station_b_neu > durchsatz_station_b_alt: 
+        #     durchsatz_station_b_änderung_agent_id = self.PlantSim.GetValue(".Modelle.Modell.stationB_letztes_fahrzeugID") - 1
+        # anzahl_kollisionen_neu = self.PlantSim.GetValue(".Modelle.Modell.anzahl_kollisionen")
 
         #Reward berechnen
         rewards = {}
         for i in range(self.num_agents):
-            reward = 0
-            if i == durchsatz_senke_änderung_agent_id:
-                reward += durchsatz_senke_neu - durchsatz_senke_alt            
-            if i == durchsatz_station_a_änderung_agent_id:
-                reward += (durchsatz_station_a_neu - durchsatz_station_a_alt) * 0.1
-            if i == durchsatz_station_b_änderung_agent_id:
-                reward += (durchsatz_station_b_neu - durchsatz_station_b_alt) * 0.1
-            reward -= (anzahl_kollisionen_neu - anzahl_kollisionen_alt)
+            # reward = 0
+            # if i == durchsatz_senke_änderung_agent_id:
+            #     reward += durchsatz_senke_neu - durchsatz_senke_alt            
+            # if i == durchsatz_station_a_änderung_agent_id:
+            #     reward += (durchsatz_station_a_neu - durchsatz_station_a_alt) * 0.1
+            # if i == durchsatz_station_b_änderung_agent_id:
+            #     reward += (durchsatz_station_b_neu - durchsatz_station_b_alt) * 0.1
+            # reward -= (anzahl_kollisionen_neu - anzahl_kollisionen_alt)
+
+            reward = self.PlantSim.GetValue(f".Modelle.Modell.agent{i+1}_reward")
         
             rewards[f"agent_{i}"] = reward
 
@@ -186,11 +189,12 @@ class PlantSimAGVMA(MultiAgentEnv):
         puffer1_val = self.PlantSim.GetValue(".Modelle.Modell.Puffer1.AnzahlBEs")
         puffer2_val = self.PlantSim.GetValue(".Modelle.Modell.Puffer2.AnzahlBEs")
         
-        zielort_mapping = {"": 0, "*.Modelle.Modell.StationA": 1, "*.Modelle.Modell.StationB": 2, "*.Modelle.Modell.Senke": 3}
+        zielort_mapping = {"": 0, ".Modelle.Modell.StationA": 1, ".Modelle.Modell.StationB": 2, ".Modelle.Modell.Senke": 3, ".Modelle.Modell.Puffer1": 4, ".Modelle.Modell.Puffer2": 5}
 
         for i in range(self.num_agents):
             # Create a list of observations for all agents
-            obs_list = [station_a_val,
+            obs_list = [i,
+                        station_a_val,
                         station_b_val,
                         puffer1_val,
                         puffer2_val]
@@ -209,7 +213,6 @@ class PlantSimAGVMA(MultiAgentEnv):
 
             # Convert the list to a numpy array and assign it to the agent's key
             obs[f"agent_{i}"] = np.array(obs_list).astype(np.float32)
-
         return obs
    
 

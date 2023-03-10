@@ -6,8 +6,6 @@ from ray import tune, air
 from ray.tune.registry import register_env
 from ray.air.integrations.wandb import WandbLoggerCallback
 
-from ray.rllib.examples.env.multi_agent import MultiAgentCartPole
-
 def tune_with_callback():
     tuner = tune.Tuner(
         "DQN",
