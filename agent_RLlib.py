@@ -8,7 +8,7 @@ from ray.air.integrations.wandb import WandbLoggerCallback
 
 def tune_with_callback():
     tuner = tune.Tuner(
-        "DQN",
+        "PPO",
         tune_config=tune.TuneConfig(
             #max_concurrent_trials = 6,
             num_samples = 1,
@@ -77,6 +77,16 @@ def get_dqn_multiagent_config():
                                                            policy_mapping_fn=lambda agent_id, episode, worker, **kwargs: "agv_policy")
     return config
 
+def get_ppo_multiagent_config():
+    from ray.rllib.algorithms.ppo import PPOConfig  #.resources(num_gpus=1) für GPU, aber funktioniert noch nicht
+    config = PPOConfig().environment(
+        env="PlantSimAGVMA", env_config={"num_agents": 2}).framework("torch").training(         
+        lr=tune.grid_search([0.0001, 0.001]),
+        kl_coeff=tune.grid_search([0.01, 0.1, 0.3]),
+        ).multi_agent(  policies={"agv_policy": (None, None, None, {})} ,
+                        policy_mapping_fn=lambda agent_id, episode, worker, **kwargs: "agv_policy")
+    return config
+
 def get_rainbow_config():
     from ray.rllib.algorithms.dqn.dqn import DQNConfig
     config = DQNConfig().environment(
@@ -111,7 +121,7 @@ if __name__ == '__main__':
     ray.init()
 
     # Configure.
-    config = get_dqn_multiagent_config()
+    config = get_ppo_multiagent_config()
 
     # Tune. Für Hyperparametersuche mit tune
     tune_with_callback()

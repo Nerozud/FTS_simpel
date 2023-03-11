@@ -63,8 +63,7 @@ class PlantSimAGVMA(MultiAgentEnv):
         self.observation_space = spaces.Box(
                 low=np.concatenate([[0, 0, 0, 0, 0], np.tile([100, 120, -1, 0, 0], self.num_agents)]),
                 high=np.concatenate([[self.num_agents - 1, 7, 7, 8, 8], np.tile([798, 500, 1, 5, 1], self.num_agents)]),
-                shape=agent_obs_shape,
-                dtype=np.float32)
+                shape=agent_obs_shape)
         
         # self.observation_space = gym.spaces.Dict({
         #     f"agent_{i}": spaces.Box(
@@ -189,7 +188,7 @@ class PlantSimAGVMA(MultiAgentEnv):
         puffer1_val = self.PlantSim.GetValue(".Modelle.Modell.Puffer1.AnzahlBEs")
         puffer2_val = self.PlantSim.GetValue(".Modelle.Modell.Puffer2.AnzahlBEs")
         
-        zielort_mapping = {"": 0, ".Modelle.Modell.StationA": 1, ".Modelle.Modell.StationB": 2, ".Modelle.Modell.Senke": 3, ".Modelle.Modell.Puffer1": 4, ".Modelle.Modell.Puffer2": 5}
+        zielort_mapping = {"": 0, "*.Modelle.Modell.StationA": 1, "*.Modelle.Modell.StationB": 2, "*.Modelle.Modell.Senke": 3, "*.Modelle.Modell.Puffer1": 4, "*.Modelle.Modell.Puffer2": 5} # mit * ist korrekt
 
         for i in range(self.num_agents):
             # Create a list of observations for all agents
@@ -212,7 +211,7 @@ class PlantSimAGVMA(MultiAgentEnv):
 
 
             # Convert the list to a numpy array and assign it to the agent's key
-            obs[f"agent_{i}"] = np.array(obs_list).astype(np.float32)
+            obs[f"agent_{i}"] = np.array(obs_list)
         return obs
    
 
