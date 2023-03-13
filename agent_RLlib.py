@@ -9,7 +9,6 @@ from ray.air.integrations.wandb import WandbLoggerCallback
 def tune_with_callback():
     tuner = tune.Tuner(
         "PPO",
-        "PPO",
         tune_config=tune.TuneConfig(
             #max_concurrent_trials = 6,
             num_samples = 1,
@@ -131,7 +130,6 @@ if __name__ == '__main__':
     ray.init()
 
     # Configure.
-    config = get_ppo_multiagent_config()
     config = get_ppo_multiagent_config()
 
     # Tune. Für Hyperparametersuche mit tune
