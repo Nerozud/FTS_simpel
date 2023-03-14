@@ -1,5 +1,5 @@
 from env_AGVsimple_multiagent import PlantSimAGVMA
-from env_AGVsimple_gymnasium import PlantSimAGVsimple
+#from env_AGVsimple_gymnasium import PlantSimAGVsimple
 
 import ray
 from ray import tune, air
@@ -20,7 +20,7 @@ def tune_with_callback():
                 checkpoint_score_attribute="episode_reward_mean",
                 num_to_keep=5),
             stop={"episode_reward_mean": 30, "timesteps_total": 3000000},
-            callbacks=[WandbLoggerCallback(project="agvs-simple")]
+            callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-hyperopt")]
         ),
         param_space=config
     )
