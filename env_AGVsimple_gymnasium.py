@@ -23,7 +23,7 @@ class PlantSimAGVsimple(gym.Env):
         #Plant Simulation Initialisierung
         self.PlantSim = win32.Dispatch("Tecnomatix.PlantSimulation.RemoteControl.22.1")
         self.PlantSim.SetLicenseType("Research")
-        self.PlantSim.loadmodel ("{}\\simulation_models\\AGVS_simpel_2201.spp".format(mod_path))     
+        self.PlantSim.loadmodel ("{}\\simulation_models\\AGVS_simpel_2203.spp".format(mod_path))     
 
         #self.PlantSim.StartSimulation(".Modelle.Modell.Ereignisverwalter")
         #self.PlantSim.StopSimulation
@@ -52,10 +52,9 @@ class PlantSimAGVsimple(gym.Env):
 
         #self.observation_space = np.array([0, 0, 0, 0, 0])
         self.observation_space = spaces.Box(
-            low=np.array([0, 0, 0, 0, 100, 120, -1, 0, 0], dtype=np.float32),
-            high=np.array([7, 7, 8, 8, 798, 500, 1, 3, 1], dtype=np.float32), 
-            shape=(9, ), 
-            dtype=np.float32
+            low=np.array([0, 0, 0, 0, 100, 120, -1, 0, 0]),
+            high=np.array([7, 7, 8, 8, 798, 500, 1, 3, 1]), 
+            shape=(9, )
         )
         # 0 Stop, 1 Vorwärts, 2 Rückwärts
         self.action_space = spaces.Discrete(3)
@@ -183,7 +182,7 @@ class PlantSimAGVsimple(gym.Env):
 
         info = {}
         #print ("Reset-State: ", self.state)
-        return np.array(self.state).astype(np.float32), info
+        return np.array(self.state), info
 
 
     def render(self):
