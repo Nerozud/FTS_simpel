@@ -5,13 +5,15 @@ import ray
 from ray import tune, air
 from ray.tune.registry import register_env
 from ray.air.integrations.wandb import WandbLoggerCallback
+from ray.tune.search.bayesopt import BayesOptSearch
 
 def tune_with_callback():
     tuner = tune.Tuner(
         "PPO",
         tune_config=tune.TuneConfig(
-            max_concurrent_trials = 6,
-            num_samples = 1,
+            max_concurrent_trials = 3,
+            #num_samples = 30,
+            search_alg= BayesOptSearch(metric="episode_reward_mean", mode="max")
         ),
         run_config=air.RunConfig(
             local_dir="./trained_models",
