@@ -1,6 +1,6 @@
 from env_AGVsimple_multiagent import PlantSimAGVMA
 #from env_AGVsimple_gymnasium import PlantSimAGVsimple
-
+import numpy as np
 import ray
 from ray import tune, air
 from ray.tune.registry import register_env
@@ -12,7 +12,7 @@ def tune_with_callback():
         "PPO",
         tune_config=tune.TuneConfig(
             max_concurrent_trials = 3,
-            #num_samples = 30,
+            num_samples = 30,
             search_alg= BayesOptSearch(metric="episode_reward_mean", mode="max")
         ),
         run_config=air.RunConfig(
@@ -75,8 +75,8 @@ def get_ppo_multiagent_config():
     config = PPOConfig().environment(
         env="PlantSimAGVMA", env_config={"num_agents": 2}).framework("torch").training(         
         #horizon=tune.randint(32, 5001), # funktioniert nicht, da horizon nicht in der config ist
-        sgd_minibatch_size=tune.randint(4, 4001),
-        num_sgd_iter=tune.randint(3, 31),
+        # sgd_minibatch_size=tune.randint(4, 4000),
+        # num_sgd_iter=tune.randint(3, 30),
         clip_param=tune.uniform(0.1, 0.3),
         lr=tune.uniform(0.000005, 0.003),
         kl_coeff=tune.uniform(0.3, 1), 
