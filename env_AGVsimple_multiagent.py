@@ -50,9 +50,10 @@ class PlantSimAGVMA(MultiAgentEnv):
             # 8 AGV 1 Geschwindigkeit, 
             # 9 AGV 1 Zielort: 0 = void, 1 = Station A, 2 = Station B, 3 = Senke
             # 10 AGV 1 Inhalt: 0 = beladen, 1 = leer
+            # 11 AGV 1 Distanz zum Zielort: - 1 = keine Route, 0 = am Zielort, > 0 = Distanz zum Zielort
 
         # Define the observation shape for each agent
-        agent_obs_shape = (5 + 5 * self.num_agents,)
+        agent_obs_shape = (5 + 6 * self.num_agents,)
 
         # Define the observation space as a dictionary mapping agent names to their observations
         # The observations are defined as Box spaces with low and high values for each input
@@ -61,18 +62,10 @@ class PlantSimAGVMA(MultiAgentEnv):
         # The dtype is set to np.float32
 
         self.observation_space = spaces.Box(
-                low=np.concatenate([[0, 0, 0, 0, 0], np.tile([100, 120, -1, 0, 0], self.num_agents)]),
-                high=np.concatenate([[self.num_agents - 1, 7, 7, 8, 8], np.tile([798, 500, 1, 5, 1], self.num_agents)]),
+                low=np.concatenate([[0, 0, 0, 0, 0], np.tile([100, 120, -1, 0, 0, -1], self.num_agents)]),
+                high=np.concatenate([[self.num_agents - 1, 7, 7, 8, 8], np.tile([798, 500, 1, 5, 1, 100], self.num_agents)]),
                 shape=agent_obs_shape)
         
-        # self.observation_space = gym.spaces.Dict({
-        #     f"agent_{i}": spaces.Box(
-        #         low=np.concatenate([[0, 0, 0, 0], np.tile([100, 120, -1, 0, 0], self.num_agents)]),
-        #         high=np.concatenate([[7, 7, 8, 8], np.tile([798, 500, 1, 3, 1], self.num_agents)]),
-        #         shape=agent_obs_shape,
-        #         dtype=np.float32
-        #     ) for i in range(self.num_agents)
-        # })
 
         # Define action space for each agent
         # 0 Stop, 1 Vorwärts, 2 Rückwärts                
@@ -90,14 +83,8 @@ class PlantSimAGVMA(MultiAgentEnv):
         """Ausführen einer Aktion und Berechnung des Rewards"""
         self.Schrittanzahl = self.Schrittanzahl + 1
         reward = 0
-        done = False
-        
+        done = False        
         truncated = False
-
-        # durchsatz_senke_alt = self.PlantSim.GetValue(".Modelle.Modell.Senke.StatAnzahlEin")
-        # durchsatz_station_a_alt = self.PlantSim.GetValue(".Modelle.Modell.StationA.StatAnzahlEin")
-        # durchsatz_station_b_alt = self.PlantSim.GetValue(".Modelle.Modell.StationB.StatAnzahlEin")
-        # anzahl_kollisionen_alt = self.PlantSim.GetValue(".Modelle.Modell.anzahl_kollisionen")
     
         # Check that actions are provided for all agents
         assert set(actions.keys()) == set([f"agent_{i}" for i in range(self.num_agents)])
@@ -126,35 +113,9 @@ class PlantSimAGVMA(MultiAgentEnv):
         #neuen State abfragen
         obs = self.get_observation()
 
-        #neuen State auswerten; wenn Durchsatz gestiegen ist, dann richtiges Fahrzeug zuweisen; Kollisionen bestraft derzeitig (noch) alle
-        # durchsatz_senke_neu = self.PlantSim.GetValue(".Modelle.Modell.Senke.StatAnzahlEin")
-        
-        # durchsatz_senke_änderung_agent_id = -1
-        # durchsatz_station_a_änderung_agent_id = -1
-        # durchsatz_station_b_änderung_agent_id = -1
-
-        # if durchsatz_senke_neu > durchsatz_senke_alt:
-        #     durchsatz_senke_änderung_agent_id = self.PlantSim.GetValue(".Modelle.Modell.senke_letztes_fahrzeugID") - 1
-        # durchsatz_station_a_neu = self.PlantSim.GetValue(".Modelle.Modell.StationA.StatAnzahlEin")
-        # if durchsatz_station_a_neu > durchsatz_station_a_alt: 
-        #     durchsatz_station_a_änderung_agent_id = self.PlantSim.GetValue(".Modelle.Modell.stationA_letztes_fahrzeugID") - 1
-        # durchsatz_station_b_neu = self.PlantSim.GetValue(".Modelle.Modell.StationB.StatAnzahlEin")
-        # if durchsatz_station_b_neu > durchsatz_station_b_alt: 
-        #     durchsatz_station_b_änderung_agent_id = self.PlantSim.GetValue(".Modelle.Modell.stationB_letztes_fahrzeugID") - 1
-        # anzahl_kollisionen_neu = self.PlantSim.GetValue(".Modelle.Modell.anzahl_kollisionen")
-
         #Reward berechnen
         rewards = {}
         for i in range(self.num_agents):
-            # reward = 0
-            # if i == durchsatz_senke_änderung_agent_id:
-            #     reward += durchsatz_senke_neu - durchsatz_senke_alt            
-            # if i == durchsatz_station_a_änderung_agent_id:
-            #     reward += (durchsatz_station_a_neu - durchsatz_station_a_alt) * 0.1
-            # if i == durchsatz_station_b_änderung_agent_id:
-            #     reward += (durchsatz_station_b_neu - durchsatz_station_b_alt) * 0.1
-            # reward -= (anzahl_kollisionen_neu - anzahl_kollisionen_alt)
-
             reward = self.PlantSim.GetValue(f".Modelle.Modell.agent{i+1}_reward")
         
             rewards[f"agent_{i}"] = reward
@@ -208,6 +169,7 @@ class PlantSimAGVMA(MultiAgentEnv):
                 zielort = zielort_mapping.get(zielort_value if len(zielort_value) > 0 else "", -1) #Wenn Zielort leer ist, dann "" als Key verwenden
                 obs_list.append(zielort)
                 obs_list.append(self.PlantSim.GetValue(f".BEs.Fahrzeug:{j+1}.leer"))
+                obs_list.append(self.PlantSim.GetValue(f".Modelle.Modell.agent{j+1}_route_length"))
 
 
             # Convert the list to a numpy array and assign it to the agent's key

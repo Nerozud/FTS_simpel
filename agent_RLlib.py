@@ -7,13 +7,13 @@ from ray.tune.registry import register_env
 from ray.air.integrations.wandb import WandbLoggerCallback
 from ray.tune.search.bayesopt import BayesOptSearch
 
-def tune_with_callback():
+def tune_with_callback():    
     tuner = tune.Tuner(
         "PPO",
         tune_config=tune.TuneConfig(
-            max_concurrent_trials = 3,
-            num_samples = 30,
-            search_alg= BayesOptSearch(metric="episode_reward_mean", mode="max")
+            #max_concurrent_trials = 3,
+            num_samples = 1,
+            #search_alg= BayesOptSearch(metric="episode_reward_mean", mode="max")
         ),
         run_config=air.RunConfig(
             local_dir="./trained_models",
@@ -75,8 +75,8 @@ def get_ppo_multiagent_config():
     config = PPOConfig().environment(
         env="PlantSimAGVMA", env_config={"num_agents": 2}).framework("torch").training(         
         #horizon=tune.randint(32, 5001), # funktioniert nicht, da horizon nicht in der config ist
-        # sgd_minibatch_size=tune.randint(4, 4000),
-        # num_sgd_iter=tune.randint(3, 30),
+        sgd_minibatch_size=tune.randint(4, 4000),
+        num_sgd_iter=tune.randint(3, 30),
         clip_param=tune.uniform(0.1, 0.3),
         lr=tune.uniform(0.000005, 0.003),
         kl_coeff=tune.uniform(0.3, 1), 
@@ -86,7 +86,7 @@ def get_ppo_multiagent_config():
         vf_loss_coeff=tune.uniform(0.5, 1),
         entropy_coeff=tune.uniform(0, 0.01)
         ).multi_agent(  policies={"agv_policy": (None, None, None, {})} ,
-                        policy_mapping_fn=lambda agent_id, episode, worker, **kwargs: "agv_policy")
+                        policy_mapping_fn= policy_mapping_fn)
     return config
 
 def get_rainbow_config():
@@ -112,6 +112,9 @@ def get_rainbow_one_run_config():
         v_max= 10.0,
         lr=0.0001)
     return config
+
+def policy_mapping_fn(agent_id, episode, worker, **kwargs):
+    return "agv_policy"
 
 if __name__ == '__main__':
     
