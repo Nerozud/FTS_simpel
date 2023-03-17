@@ -1,6 +1,6 @@
 from env_AGVsimple_multiagent import PlantSimAGVMA
 #from env_AGVsimple_gymnasium import PlantSimAGVsimple
-import numpy as np
+
 import ray
 from ray import tune, air
 from ray.tune.registry import register_env
@@ -9,10 +9,10 @@ from ray.tune.search.bayesopt import BayesOptSearch
 
 def tune_with_callback():    
     tuner = tune.Tuner(
-        "PPO",
+        "DQN",
         tune_config=tune.TuneConfig(
             #max_concurrent_trials = 3,
-            num_samples = 1,
+            num_samples = 2,
             #search_alg= BayesOptSearch(metric="episode_reward_mean", mode="max")
         ),
         run_config=air.RunConfig(
@@ -21,8 +21,8 @@ def tune_with_callback():
                 checkpoint_score_order="max",
                 checkpoint_score_attribute="episode_reward_mean",
                 num_to_keep=5),
-            stop={"episode_reward_mean": 30, "timesteps_total": 3000000},
-            callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-hyperopt")]
+            stop={"episode_reward_mean": 50, "timesteps_total": 3000000},
+            callbacks=[WandbLoggerCallback(project="agvs-simple-dqn-hyperopt")]
         ),
         param_space=config
     )
@@ -67,7 +67,7 @@ def get_dqn_multiagent_config():
         replay_buffer_config={"type": "ReplayBuffer", 
                                 "capacity": tune.grid_search([100000, 1000000])}, 
         lr=tune.grid_search([0.00005, 0.0001, 0.0005])).multi_agent(policies={"agv_policy": (None, None, None, {})} ,
-                                                           policy_mapping_fn=lambda agent_id, episode, worker, **kwargs: "agv_policy")
+                                                           policy_mapping_fn=policy_mapping_fn)
     return config
 
 def get_ppo_multiagent_config():
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     ray.init()
 
     # Configure.
-    config = get_ppo_multiagent_config()
+    config = get_dqn_multiagent_config()
 
     # Tune. Für Hyperparametersuche mit tune
     tune_with_callback()
