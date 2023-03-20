@@ -12,7 +12,7 @@ def tune_with_callback():
         "DQN",
         tune_config=tune.TuneConfig(
             #max_concurrent_trials = 3,
-            num_samples = 2,
+            num_samples = 1,
             #search_alg= BayesOptSearch(metric="episode_reward_mean", mode="max")
         ),
         run_config=air.RunConfig(
@@ -21,7 +21,7 @@ def tune_with_callback():
                 checkpoint_score_order="max",
                 checkpoint_score_attribute="episode_reward_mean",
                 num_to_keep=5),
-            stop={"episode_reward_mean": 50, "timesteps_total": 3000000},
+            stop={"episode_reward_mean": 30, "timesteps_total": 3000000},
             callbacks=[WandbLoggerCallback(project="agvs-simple-dqn-hyperopt")]
         ),
         param_space=config
@@ -123,13 +123,17 @@ if __name__ == '__main__':
         return PlantSimAGVMA(env_config)
 
     register_env("PlantSimAGVMA", env_creator)
-    ray.init()
+    ray.init(object_store_memory=800000000)
+
 
     # Configure.
     config = get_dqn_multiagent_config()
 
     # Tune. Für Hyperparametersuche mit tune
     tune_with_callback()
+
+    # Resume.
+    #tune.run(resume=True, run_or_experiment="DQN")
 
     # Build & Train. Einfach einen Algorithmus erstellen und trainieren
     # algo = config.build()

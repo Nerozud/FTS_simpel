@@ -29,7 +29,7 @@ class PlantSimAGVMA(MultiAgentEnv):
         #self.PlantSim.StopSimulation
 
         #Gesamtzahl der Schritte pro Episode
-        self.SchritteProEpisode = 1810
+        self.SchritteProEpisode = 1000
         self.PlantSim.SetValue(".Modelle.Modell.SchritteproEpisode", self.SchritteProEpisode)
         self.PlantSim.ExecuteSimTalk(".Modelle.Modell.Pythonanbindung:=true")
         self.PlantSim.ExecuteSimTalk(f".Modelle.Modell.anzahl_agenten := {self.num_agents}")
@@ -37,7 +37,7 @@ class PlantSimAGVMA(MultiAgentEnv):
         self.Schrittanzahl = 0
         
         #Abwarten für vollständingen Ladevorgang
-        time.sleep(5)
+        #time.sleep(5)
 
         # PlantSim-Input definieren: 
             # 1 ID des betrachteten Agenten, beginnend bei 0
