@@ -1,11 +1,12 @@
 from env_AGVsimple_multiagent import PlantSimAGVMA
 #from env_AGVsimple_gymnasium import PlantSimAGVsimple
-
+import numpy as np
 import ray
 from ray import tune, air
 from ray.tune.registry import register_env
 from ray.air.integrations.wandb import WandbLoggerCallback
 from ray.tune.search.bayesopt import BayesOptSearch
+
 
 def tune_with_callback():    
     tuner = tune.Tuner(
@@ -28,36 +29,34 @@ def tune_with_callback():
     )
     tuner.fit()
 
-def test_trained_models_DQN():
-    """ Test the trained model."""
-    # Load the trained model.
-    #experiment_path = "./trained_models/DQN/DQN_PlantSimAGVsimple_042ec_00000_0_lr=0.0001_2023-02-17_14-57-29"
-    #print(f"Loading results from {experiment_path}...")
-    #restored_tuner = tune.Tuner.restore(experiment_path) 
-    
-    # Get the best result based on a particular metric.
-    #best_result = restored_tuner.get_best_result(metric="episode_reward_mean", mode="max")
-
-    # Get the best checkpoint corresponding to the best result.
-    #best_checkpoint = best_result.checkpoint
-    best_checkpoint = "./trained_models/DQN/DQN_PlantSimAGVsimple_042ec_00000_0_lr=0.0001_2023-02-17_14-57-29/checkpoint_000124"
-    print(f"Best checkpoint: {best_checkpoint}")
-    
-    # Load the algorithm from the best checkpoint.
+def test_trained_model(checkpoint_path, num_episodes=10):
     from ray.rllib.algorithms.algorithm import Algorithm
-    algo = Algorithm.from_checkpoint(best_checkpoint)
+
+    algo = Algorithm.from_checkpoint(checkpoint_path)
     
-    # Test the trained model.
-    env = env_creator({})
-    episode_reward = 0
-    done = False
-    obs = env.reset()[0]
+    # Get the policy using the policy_id
+    policy_id = "agv_policy"
+    env = env_creator({"num_agents": 2})
     env.render()
-    while not done:
-        action = algo.compute_single_action(obs)
-        obs, reward, done, truncated, info = env.step(action)
-        episode_reward += reward
-    print(f"Episode reward: {episode_reward}")
+    for i in range(num_episodes):        
+        obs = env.reset()[0]
+        print(f"Initial observation: {obs}")
+        done = {'__all__': False}
+        episode_reward = 0        
+        while not done['__all__']:
+            """ Compute actions for each agent """
+            actions = dict()
+            #print("Type of actions:", type(actions))
+            for j in range(2):
+                actions[f"agent_{j}"] = algo.compute_single_action(obs[f"agent_{j}"], policy_id=policy_id, explore=False)
+            #print(f"Actions: {actions}")
+                
+            obs, rewards, done, truncated, info = env.step(actions)
+            #print(f"done: {done}, rewards: {rewards}")
+            episode_reward += sum(rewards.values())
+        
+        print(f"Episode {i + 1} reward: {episode_reward}")
+
 
 
 def get_dqn_multiagent_config():
@@ -141,5 +140,6 @@ if __name__ == '__main__':
     #     print(algo.train())
 
     # Test.
-    #test_trained_models_DQN()
+    # checkpoint_path = "./trained_models/DQN/DQN_PlantSimAGVMA_ac230_00004_4_lr=0.0001,capacity=1000000_2023-03-20_11-13-03/checkpoint_003000"
+    # test_trained_model(checkpoint_path)
  
