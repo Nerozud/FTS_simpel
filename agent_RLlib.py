@@ -6,15 +6,22 @@ from ray import tune, air
 from ray.tune.registry import register_env
 from ray.air.integrations.wandb import WandbLoggerCallback
 from ray.tune.search.bayesopt import BayesOptSearch
+from ray.tune.stopper import (CombinedStopper, MaximumIterationStopper, TrialPlateauStopper)
 
+stopper = CombinedStopper(
+    MaximumIterationStopper(max_iter=1000),
+    TrialPlateauStopper(metric="episode_reward_mean", std=0.01, num_results=10),
+)
 
 def tune_with_callback():    
     tuner = tune.Tuner(
-        "DQN",
+        "PPO",
         tune_config=tune.TuneConfig(
-            #max_concurrent_trials = 3,
-            num_samples = 1,
+            max_concurrent_trials = 2,
+            num_samples = 100,
             #search_alg= BayesOptSearch(metric="episode_reward_mean", mode="max")
+            trial_name_creator=trial_str_creator,
+            trial_dirname_creator=trial_str_creator
         ),
         run_config=air.RunConfig(
             local_dir="./trained_models",
@@ -22,12 +29,16 @@ def tune_with_callback():
                 checkpoint_score_order="max",
                 checkpoint_score_attribute="episode_reward_mean",
                 num_to_keep=5),
-            stop={"episode_reward_mean": 30, "timesteps_total": 3000000},
-            callbacks=[WandbLoggerCallback(project="agvs-simple-dqn-hyperopt")]
+            #stop={"episode_reward_mean": 30, "timesteps_total": 1000000},
+            stop=stopper,
+            callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-hyperopt")]
         ),
         param_space=config
     )
     tuner.fit()
+
+def trial_str_creator(trial):
+    return "{}_{}".format(trial.trainable_name, trial.trial_id)
 
 def test_trained_model(checkpoint_path, num_episodes=10):
     from ray.rllib.algorithms.algorithm import Algorithm
@@ -126,7 +137,7 @@ if __name__ == '__main__':
 
 
     # Configure.
-    config = get_dqn_multiagent_config()
+    config = get_ppo_multiagent_config()
 
     # Tune. Für Hyperparametersuche mit tune
     tune_with_callback()
