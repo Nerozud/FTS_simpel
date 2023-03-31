@@ -9,17 +9,17 @@ from ray.tune.search.bayesopt import BayesOptSearch
 from ray.tune.stopper import (CombinedStopper, MaximumIterationStopper, TrialPlateauStopper)
 
 stopper = CombinedStopper(
-    MaximumIterationStopper(max_iter=1000),
-    TrialPlateauStopper(metric="episode_reward_mean", std=0.01, num_results=10),
+    MaximumIterationStopper(max_iter=500),
+    TrialPlateauStopper(metric="episode_reward_mean", std=0.05, num_results=100),
 )
 
 def tune_with_callback():    
     tuner = tune.Tuner(
         "PPO",
         tune_config=tune.TuneConfig(
-            max_concurrent_trials = 2,
-            num_samples = 100,
-            #search_alg= BayesOptSearch(metric="episode_reward_mean", mode="max")
+            max_concurrent_trials = 3,
+            num_samples = 200,
+            search_alg= BayesOptSearch(metric="episode_reward_mean", mode="max"),
             trial_name_creator=trial_str_creator,
             trial_dirname_creator=trial_str_creator
         ),
@@ -85,8 +85,10 @@ def get_ppo_multiagent_config():
     config = PPOConfig().environment(
         env="PlantSimAGVMA", env_config={"num_agents": 2}).framework("torch").training(         
         #horizon=tune.randint(32, 5001), # funktioniert nicht, da horizon nicht in der config ist
-        sgd_minibatch_size=tune.randint(4, 4000),
-        num_sgd_iter=tune.randint(3, 30),
+        # sgd_minibatch_size=tune.randint(4, 4000),
+        sgd_minibatch_size=512,
+        # num_sgd_iter=tune.randint(3, 30),
+        num_sgd_iter=20,        
         clip_param=tune.uniform(0.1, 0.3),
         lr=tune.uniform(0.000005, 0.003),
         kl_coeff=tune.uniform(0.3, 1), 
