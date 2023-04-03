@@ -6,12 +6,32 @@ from ray import tune, air
 from ray.tune.registry import register_env
 from ray.air.integrations.wandb import WandbLoggerCallback
 from ray.tune.search.bayesopt import BayesOptSearch
+from ray.tune.schedulers import PopulationBasedTraining
 from ray.tune.stopper import (CombinedStopper, MaximumIterationStopper, TrialPlateauStopper)
+
 
 stopper = CombinedStopper(
     MaximumIterationStopper(max_iter=500),
-    TrialPlateauStopper(metric="episode_reward_mean", std=0.05, num_results=100),
+    TrialPlateauStopper(metric="episode_reward_mean", std=0.05, num_results=50),
 )
+
+pbt = PopulationBasedTraining(
+    time_attr="training_iteration",
+    metric="episode_reward_mean",
+    mode="max",
+    perturbation_interval=100,
+    hyperparam_mutations={
+        "sgd_minibatch_size": tune.randint(4, 4000),
+        "num_sgd_iter": tune.randint(3, 30),
+        "clip_param": tune.uniform(0.1, 0.3),
+        "lr": tune.uniform(0.000005, 0.003),
+        "kl_coeff": tune.uniform(0.3, 1), 
+        "kl_target": tune.uniform(0.003, 0.03),
+        "gamma": tune.uniform(0.8, 0.9997),
+        "lambda_": tune.uniform(0.9, 1),
+        "vf_loss_coeff": tune.uniform(0.5, 1),
+        "entropy_coeff": tune.uniform(0, 0.01)
+    })
 
 def tune_with_callback():    
     tuner = tune.Tuner(
@@ -19,7 +39,8 @@ def tune_with_callback():
         tune_config=tune.TuneConfig(
             max_concurrent_trials = 3,
             num_samples = 200,
-            search_alg= BayesOptSearch(metric="episode_reward_mean", mode="max"),
+            scheduler=pbt,
+            #search_alg= BayesOptSearch(metric="episode_reward_mean", mode="max"),
             trial_name_creator=trial_str_creator,
             trial_dirname_creator=trial_str_creator
         ),
