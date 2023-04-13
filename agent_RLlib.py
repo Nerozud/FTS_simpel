@@ -11,8 +11,8 @@ from ray.tune.stopper import (CombinedStopper, MaximumIterationStopper, TrialPla
 
 
 stopper = CombinedStopper(
-    MaximumIterationStopper(max_iter=500),
-    TrialPlateauStopper(metric="episode_reward_mean", std=0.05, num_results=50),
+    MaximumIterationStopper(max_iter=2500),
+    #TrialPlateauStopper(metric="episode_reward_mean", std=0.2, num_results=100),
 )
 
 pbt = PopulationBasedTraining(
@@ -36,25 +36,42 @@ pbt = PopulationBasedTraining(
 def tune_with_callback():    
     tuner = tune.Tuner(
         "PPO",
+        param_space=config,
         tune_config=tune.TuneConfig(
             max_concurrent_trials = 3,
             num_samples = 200,
-            scheduler=pbt,
-            #search_alg= BayesOptSearch(metric="episode_reward_mean", mode="max"),
+            #time_budget_s=3600*24*1, # 1 day
+            #scheduler=pbt,
+            # search_alg= BayesOptSearch(metric="episode_reward_mean", 
+            #                            mode="max", 
+            #                            random_search_steps=0, 
+            #                            utility_kwargs={"kind": "ucb", "kappa": 0.5, "xi": 0.0},
+            #                            points_to_evaluate=[{"clip_param": 0.1749080237694725, 
+            #                                                 "lr": 0.0001789604184437574, 
+            #                                                 "kl_coeff": 0.7190609389379257, 
+            #                                                 "kl_target": 0.007212503291945786, 
+            #                                                 "gamma": 0.9461791901797376, 
+            #                                                 "lambda_": 0.9155994520336204, 
+            #                                                 "vf_loss_coeff": 0.9330880728874676, 
+            #                                                 "entropy_coeff": 0.009507143064099164}],
+            #                             verbose=2
+            #                             ),
             trial_name_creator=trial_str_creator,
             trial_dirname_creator=trial_str_creator
         ),
         run_config=air.RunConfig(
             local_dir="./trained_models",
             checkpoint_config=air.CheckpointConfig(
-                checkpoint_score_order="max",
-                checkpoint_score_attribute="episode_reward_mean",
-                num_to_keep=5),
+                checkpoint_frequency=100,
+                checkpoint_at_end=True,
+                # checkpoint_score_order="max",
+                # checkpoint_score_attribute="episode_reward_mean",
+                # num_to_keep=5
+                ),
             #stop={"episode_reward_mean": 30, "timesteps_total": 1000000},
             stop=stopper,
-            callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-hyperopt")]
-        ),
-        param_space=config
+            callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-bayesopt2")]
+        )        
     )
     tuner.fit()
 
@@ -110,14 +127,22 @@ def get_ppo_multiagent_config():
         sgd_minibatch_size=512,
         # num_sgd_iter=tune.randint(3, 30),
         num_sgd_iter=20,        
-        clip_param=tune.uniform(0.1, 0.3),
-        lr=tune.uniform(0.000005, 0.003),
-        kl_coeff=tune.uniform(0.3, 1), 
-        kl_target=tune.uniform(0.003, 0.03),
-        gamma=tune.uniform(0.8, 0.9997),
-        lambda_=tune.uniform(0.9, 1),
-        vf_loss_coeff=tune.uniform(0.5, 1),
-        entropy_coeff=tune.uniform(0, 0.01)
+        # clip_param=tune.uniform(0.1, 0.3),
+        # lr=tune.uniform(0.000005, 0.001),
+        # kl_coeff=tune.uniform(0.3, 1), 
+        # kl_target=tune.uniform(0.003, 0.03),
+        # gamma=tune.uniform(0.8, 0.9997),
+        # lambda_=tune.uniform(0.9, 1),
+        # vf_loss_coeff=tune.uniform(0.5, 1),
+        # entropy_coeff=tune.uniform(0.001, 0.01)
+        clip_param=0.1657,
+        lr=0.00009462,
+        kl_coeff=0.7294, 
+        kl_target=0.02122,
+        gamma=0.9528,
+        lambda_=0.9078,
+        vf_loss_coeff=0.9343,
+        entropy_coeff=0.009875
         ).multi_agent(  policies={"agv_policy": (None, None, None, {})} ,
                         policy_mapping_fn= policy_mapping_fn)
     return config
