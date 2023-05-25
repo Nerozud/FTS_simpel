@@ -35,7 +35,7 @@ pbt_ppo = PopulationBasedTraining(
 
 def tune_with_callback():    
     tuner = tune.Tuner(
-        "QMix",
+        "QMIX", # "DQN", "PPO", "QMIX"
         param_space=config,
         tune_config=tune.TuneConfig(
             max_concurrent_trials = 9,
@@ -170,9 +170,9 @@ def get_qmix_config():
         train_batch_size=tune.choice([32, 64, 128, 256, 512, 1024, 2048]),
         mixer = tune.choice(["qmix", "vdn"]),
         target_network_update_freq=tune.choice([100, 500, 1000, 2000, 5000, 10000]),
-        optim_alpha=tune.uniform(0.1, 0.99),
-        optim_epsilon=tune.uniform(1e-8, 1e-2)
-    )
+        #optim_alpha=tune.uniform(0.1, 0.99)
+    ).multi_agent(policies={"agv_policy": (None, None, None, {})} ,
+                                                           policy_mapping_fn=policy_mapping_fn)
     return config
 
 def policy_mapping_fn(agent_id, episode, worker, **kwargs):
