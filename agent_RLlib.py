@@ -163,7 +163,7 @@ def get_ppo_multiagent_config():
 def get_qmix_config():
     from ray.rllib.algorithms.qmix import QMixConfig
     config = QMixConfig().environment(
-        env="PlantSimAGVMA", env_config={"num_agents": 2}
+        env="PlantSimAGVMA", env_config={"num_agents": 2, "enable_grouping": True}
     ).framework("torch").training(
         lr=tune.uniform(1e-4,1e-2),
         gamma=tune.uniform(0.9, 0.999),
@@ -181,8 +181,27 @@ def policy_mapping_fn(agent_id, episode, worker, **kwargs):
 if __name__ == '__main__':
     
     # Init.
+    # def env_creator(env_config):
+    #     return PlantSimAGVMA(env_config)
+
     def env_creator(env_config):
-        return PlantSimAGVMA(env_config)
+        env = PlantSimAGVMA(env_config)
+
+        # If agent grouping is enabled in env_config...
+        if env_config.get("enable_grouping", False):
+            from gymnasium import spaces
+            # Get the number of agents from env_config
+            num_agents = env_config.get("num_agents", 2)
+
+            # Define agent groups, observation spaces, and action spaces
+            groups = {"group_1": [f"agent_{i+1}" for i in range(num_agents)]}
+            group_obs_space = spaces.Tuple([env.observation_space for _ in range(len(groups))])
+            group_action_space = spaces.Tuple([env.action_space for _ in range(len(groups))])
+
+            # Group agents
+            env = env.with_agent_groups(groups, obs_space=group_obs_space, act_space=group_action_space)
+
+        return env
 
     register_env("PlantSimAGVMA", env_creator)
     ray.init(object_store_memory=800000000)

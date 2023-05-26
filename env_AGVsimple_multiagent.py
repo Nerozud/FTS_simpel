@@ -1,7 +1,10 @@
 from pathlib import Path
+from typing import Dict, List
+from ray.rllib.utils.typing import AgentID
 
 import win32com.client as win32
 import gymnasium as gym
+from gym import Space
 import numpy as np
 from gymnasium import spaces
 import time
@@ -64,8 +67,7 @@ class PlantSimAGVMA(MultiAgentEnv):
         self.observation_space = spaces.Box(
                 low=np.concatenate([[0, 0, 0, 0, 0], np.tile([100, 120, -1, 0, 0, -1], self.num_agents)]),
                 high=np.concatenate([[self.num_agents - 1, 7, 7, 8, 8], np.tile([798, 500, 1, 5, 1, 100], self.num_agents)]),
-                shape=agent_obs_shape)
-        
+                shape=agent_obs_shape)     
 
         # Define action space for each agent
         # 0 Stop, 1 Vorwärts, 2 Rückwärts                
@@ -73,6 +75,15 @@ class PlantSimAGVMA(MultiAgentEnv):
         #     f"agent_{i}": spaces.Discrete(3) for i in range(self.num_agents)
         # })
         self.action_space = gym.spaces.Discrete(3)
+
+    def with_agent_groups(self, groups: Dict[str, List[AgentID]], obs_space: Space = None, act_space: Space = None) -> MultiAgentEnv:            
+        from gym.spaces import Tuple
+        if obs_space is None:
+            obs_space = Tuple([self.observation_space for _ in range(self.num_agents)])
+        if act_space is None:
+            act_space = Tuple([self.action_space for _ in range(self.num_agents)])
+        return super().with_agent_groups(groups, obs_space=obs_space, act_space=act_space)
+
 
     def seed (self, seed=None):        
         """Setzen der Zufallszahlengenerator-Seed"""
@@ -223,3 +234,4 @@ class PlantSimAGVMA(MultiAgentEnv):
         """Closes the environment."""
         #self.PlantSim.CloseModel()
         self.PlantSim.Quit()
+
