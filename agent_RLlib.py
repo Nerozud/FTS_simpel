@@ -38,7 +38,7 @@ def tune_with_callback():
         "QMIX", # "DQN", "PPO", "QMIX"
         param_space=config,
         tune_config=tune.TuneConfig(
-            max_concurrent_trials = 9,
+            max_concurrent_trials = 6,
             num_samples = 30,            
             #time_budget_s=3600*24*1, # 1 day
             #scheduler=pbt_ppo,
@@ -194,9 +194,9 @@ if __name__ == '__main__':
             num_agents = env_config.get("num_agents", 2)
 
             # Define agent groups, observation spaces, and action spaces
-            groups = {"group_1": [f"agent_{i+1}" for i in range(num_agents)]}
-            group_obs_space = spaces.Tuple([env.observation_space for _ in range(len(groups))])
-            group_action_space = spaces.Tuple([env.action_space for _ in range(len(groups))])
+            groups = {"group_1": [f"agent_{i}" for i in range(num_agents)]}
+            group_obs_space = spaces.Tuple(env.observation_space for _ in range(len(groups)))
+            group_action_space = spaces.Tuple(env.action_space for _ in range(len(groups)))
 
             # Group agents
             env = env.with_agent_groups(groups, obs_space=group_obs_space, act_space=group_action_space)

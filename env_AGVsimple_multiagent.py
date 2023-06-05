@@ -22,6 +22,7 @@ class PlantSimAGVMA(MultiAgentEnv):
     def __init__(self, env_config):
         """Initialisierung der Simulation"""
         super().__init__()
+        self.env_config = env_config
         self.num_agents = env_config["num_agents"]
         #Plant Simulation Initialisierung
         self.PlantSim = win32.Dispatch("Tecnomatix.PlantSimulation.RemoteControl.22.1")
@@ -97,6 +98,13 @@ class PlantSimAGVMA(MultiAgentEnv):
         done = False        
         truncated = False
     
+        # Check if agent grouping is enabled
+        if self.env_config.get("enable_grouping", False):
+            # Get the actions for the group
+            group_actions = actions["group_1"]
+            # Convert the tuple of actions to a dictionary with one key for each agent
+            actions = {f"agent_{i}": action for i, action in enumerate(group_actions)}
+
         # Check that actions are provided for all agents
         assert set(actions.keys()) == set([f"agent_{i}" for i in range(self.num_agents)])
 
@@ -185,7 +193,15 @@ class PlantSimAGVMA(MultiAgentEnv):
 
             # Convert the list to a numpy array and assign it to the agent's key
             obs[f"agent_{i}"] = np.array(obs_list)
-        return obs
+            
+        # If grouping is enabled, group the observations
+        if self.env_config.get("enable_grouping", False):
+            group_obs_list = []
+            group_obs_list.append(np.array(obs_list))
+            return {"group_1": tuple(group_obs_list)}
+        else:
+            return obs
+
    
 
     def reset(self, *, seed=None, options=None):
