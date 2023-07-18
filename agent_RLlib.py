@@ -172,7 +172,7 @@ def get_qmix_config():
         target_network_update_freq=tune.choice([100, 500, 1000, 2000, 5000, 10000]),
         #optim_alpha=tune.uniform(0.1, 0.99)
     ).multi_agent(policies={"agv_policy": (None, None, None, {})} ,
-                                                           policy_mapping_fn=policy_mapping_fn)
+                            policy_mapping_fn=policy_mapping_fn)
     return config
 
 def policy_mapping_fn(agent_id, episode, worker, **kwargs):
@@ -195,8 +195,9 @@ if __name__ == '__main__':
 
             # Define agent groups, observation spaces, and action spaces
             groups = {"group_1": [f"agent_{i}" for i in range(num_agents)]}
-            group_obs_space = spaces.Tuple(env.observation_space for _ in range(len(groups)))
-            group_action_space = spaces.Tuple(env.action_space for _ in range(len(groups)))
+            #print("groups: ", groups, "len(groups): ", len(groups), "env.observation_space: ", env.observation_space, "env.action_space: ", env.action_space)
+            group_obs_space = spaces.Tuple(env.observation_space for _ in range(num_agents))
+            group_action_space = spaces.Tuple(env.action_space for _ in range(num_agents))
 
             # Group agents
             env = env.with_agent_groups(groups, obs_space=group_obs_space, act_space=group_action_space)
