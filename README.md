@@ -25,13 +25,6 @@ This is a single-agent environment that also simulates an AGV system with deadlo
 - Gymnasium
 - Plant Simulation software
 
-## Installation
-
-\```bash
-pip install ray gymnasium
-\```
-
-
 ## Contributing
 
 If you'd like to contribute, please fork the repository and use a feature branch. Pull requests are warmly welcome.
