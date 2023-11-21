@@ -21,8 +21,8 @@ pbt_ppo = PopulationBasedTraining(
     mode="max",
     perturbation_interval=50,
     hyperparam_mutations={
-        "sgd_minibatch_size": tune.randint(4, 4000),
-        "num_sgd_iter": tune.randint(3, 30),
+        # "sgd_minibatch_size": tune.randint(4, 4000),
+        # "num_sgd_iter": tune.randint(3, 30),
         "clip_param": tune.uniform(0.1, 0.3),
         "lr": tune.uniform(0.000005, 0.003),
         "kl_coeff": tune.uniform(0.3, 1), 
@@ -35,13 +35,13 @@ pbt_ppo = PopulationBasedTraining(
 
 def tune_with_callback():    
     tuner = tune.Tuner(
-        "QMIX", # "DQN", "PPO", "QMIX"
+        "PPO", # "DQN", "PPO", "QMIX"
         param_space=config,
         tune_config=tune.TuneConfig(
-            max_concurrent_trials = 6,
-            num_samples = 30,            
+            max_concurrent_trials = 2,
+            # num_samples = 30,            
             #time_budget_s=3600*24*1, # 1 day
-            #scheduler=pbt_ppo,
+            # scheduler=pbt_ppo,
             # search_alg= BayesOptSearch(metric="episode_reward_mean", 
             #                            mode="max", 
             #                            random_search_steps=0, 
@@ -64,14 +64,14 @@ def tune_with_callback():
             local_dir="./trained_models",
             checkpoint_config=air.CheckpointConfig(
                 checkpoint_frequency=50,
-                checkpoint_at_end=True,
-                # checkpoint_score_order="max",
-                # checkpoint_score_attribute="episode_reward_mean",
-                # num_to_keep=5
+                checkpoint_at_end=False,
+                checkpoint_score_order="max",
+                checkpoint_score_attribute="episode_reward_mean",
+                num_to_keep=5
                 ),
             #stop={"episode_reward_mean": 30, "timesteps_total": 1000000},
             stop=stopper,
-            callbacks=[WandbLoggerCallback(project="agvs-simple-qmix")]
+            callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-test")]
         )        
     )
     tuner.fit()
@@ -107,8 +107,6 @@ def test_trained_model(checkpoint_path, num_episodes=10):
         
         print(f"Episode {i + 1} reward: {episode_reward}")
 
-
-
 def get_dqn_multiagent_config():
     from ray.rllib.algorithms.dqn.dqn import DQNConfig
     config = DQNConfig().environment(
@@ -131,15 +129,23 @@ def get_dqn_multiagent_config():
 def get_ppo_multiagent_config():
     from ray.rllib.algorithms.ppo import PPOConfig # .resources(num_gpus=1) müsste GPU aktivieren, funktioniert aber noch nicht
     config = PPOConfig().environment(
-        env="PlantSimAGVMA", env_config={"num_agents": 2}
+        env="PlantSimAGVMA", env_config={"num_agents": 2, "enable_grouping": False}
         ).resources(
         #num_gpus=1
         ).framework("torch").training(         
-        #horizon=tune.randint(32, 5001), # funktioniert nicht, da horizon nicht in der config ist
-        # sgd_minibatch_size=tune.randint(4, 4000),
-        sgd_minibatch_size=512,
+        #sgd_minibatch_size=tune.grid_search([1024, 2048, 4000]),
+        train_batch_size=4000,
+        sgd_minibatch_size=4000,
         # num_sgd_iter=tune.randint(3, 30),
-        num_sgd_iter=20,        
+        num_sgd_iter=10,
+        model={"fcnet_hiddens": [64, 64],
+            #"_disable_preprocessor_api": True,
+            "use_lstm": tune.grid_search([True, False]), 
+            "lstm_cell_size": 64,
+            "lstm_use_prev_action": True,
+            "lstm_use_prev_reward": True,
+            "vf_share_layers": False,
+},
         # clip_param=tune.uniform(0.1, 0.3),
         # lr=tune.uniform(0.000005, 0.001),
         # kl_coeff=tune.uniform(0.3, 1), 
@@ -148,16 +154,22 @@ def get_ppo_multiagent_config():
         # lambda_=tune.uniform(0.9, 1),
         # vf_loss_coeff=tune.uniform(0.5, 1),
         # entropy_coeff=tune.uniform(0.001, 0.01)
-        clip_param=0.1657,
-        lr=0.00009462,
-        kl_coeff=0.7294, 
-        kl_target=0.02122,
-        gamma=0.9528,
-        lambda_=0.9078,
-        vf_loss_coeff=0.9343,
-        entropy_coeff=0.009875
+        clip_param=0.2,
+        lr=0.0003,
+        kl_coeff=0.5, 
+        kl_target=0.01,
+        gamma=0.99,
+        lambda_=0.95,
+        vf_loss_coeff=0.9,
+        entropy_coeff=0.001,
+
+        optimizer={ "adam_epsilon": 1e-5,
+                    "beta1": 0.99,
+                    "beta2": 0.99,
+        },
         ).multi_agent(  policies={"agv_policy": (None, None, None, {})} ,
                         policy_mapping_fn= policy_mapping_fn)
+    config ["batch_mode"] = "complete_episodes"
     return config
 
 def get_qmix_config():
@@ -205,17 +217,18 @@ if __name__ == '__main__':
         return env
 
     register_env("PlantSimAGVMA", env_creator)
-    ray.init(object_store_memory=800000000)
+    ray.init()
 
 
     # Configure.
-    config = get_qmix_config()
+    config = get_ppo_multiagent_config()
 
     # Tune. Für Hyperparametersuche mit tune
     tune_with_callback()
 
     # Resume.
-    #tune.run(resume=True, run_or_experiment="DQN")
+    # tune.run(restore="trained_models\PPO\PPO_20534_00000\checkpoint_001500",
+    #          run_or_experiment="PPO",)
 
     # Build & Train. Einfach einen Algorithmus erstellen und trainieren
     # algo = config.build()

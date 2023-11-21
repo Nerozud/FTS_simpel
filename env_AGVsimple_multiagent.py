@@ -27,13 +27,13 @@ class PlantSimAGVMA(MultiAgentEnv):
         #Plant Simulation Initialisierung
         self.PlantSim = win32.Dispatch("Tecnomatix.PlantSimulation.RemoteControl.22.1")
         self.PlantSim.SetLicenseType("Research")
-        self.PlantSim.loadmodel ("{}\\simulation_models\\AGVS_simpel_2204.spp".format(mod_path))     
+        self.PlantSim.loadmodel ("{}\\simulation_models\\AGVS_simpel_2311.spp".format(mod_path))     
 
         #self.PlantSim.StartSimulation(".Modelle.Modell.Ereignisverwalter")
         #self.PlantSim.StopSimulation
 
         #Gesamtzahl der Schritte pro Episode
-        self.SchritteProEpisode = 1000
+        self.SchritteProEpisode = 2000
         self.PlantSim.SetValue(".Modelle.Modell.SchritteproEpisode", self.SchritteProEpisode)
         self.PlantSim.ExecuteSimTalk(".Modelle.Modell.Pythonanbindung:=true")
         self.PlantSim.ExecuteSimTalk(f".Modelle.Modell.anzahl_agenten := {self.num_agents}")
