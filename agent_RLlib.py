@@ -9,6 +9,7 @@ from ray.tune.search.bayesopt import BayesOptSearch
 from ray.tune.schedulers import PopulationBasedTraining
 from ray.tune.stopper import (CombinedStopper, MaximumIterationStopper, TrialPlateauStopper)
 
+import os
 
 stopper = CombinedStopper(
     MaximumIterationStopper(max_iter=1000),
@@ -61,7 +62,7 @@ def tune_with_callback():
             
         ),
         run_config=air.RunConfig(
-            local_dir="./trained_models",
+            local_dir=os.path.abspath("./trained_models"),
             checkpoint_config=air.CheckpointConfig(
                 checkpoint_frequency=50,
                 checkpoint_at_end=False,

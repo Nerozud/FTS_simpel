@@ -4,10 +4,9 @@ from ray.rllib.utils.typing import AgentID
 
 import win32com.client as win32
 import gymnasium as gym
-from gym import Space
+
 import numpy as np
 from gymnasium import spaces
-import time
 
 from ray.rllib.env.multi_agent_env import MultiAgentEnv
 
@@ -24,6 +23,7 @@ class PlantSimAGVMA(MultiAgentEnv):
         super().__init__()
         self.env_config = env_config
         self.num_agents = env_config["num_agents"]
+        self._agent_ids = {f"agent_{i}" for i in range(self.num_agents)}
         #Plant Simulation Initialisierung
         self.PlantSim = win32.Dispatch("Tecnomatix.PlantSimulation.RemoteControl.22.1")
         self.PlantSim.SetLicenseType("Research")
@@ -40,9 +40,6 @@ class PlantSimAGVMA(MultiAgentEnv):
         #Zähler für Schritte pro Episode
         self.Schrittanzahl = 0
         
-        #Abwarten für vollständingen Ladevorgang
-        #time.sleep(5)
-
         # PlantSim-Input definieren: 
             # 1 ID des betrachteten Agenten, beginnend bei 0
             # 2 Station A Belegt, 
@@ -66,10 +63,11 @@ class PlantSimAGVMA(MultiAgentEnv):
         # The dtype is set to np.float32
 
         self.observation_space = spaces.Box(
-                low=np.concatenate([[0, 0, 0, 0, 0], np.tile([100, 120, -1, 0, 0, -1], self.num_agents)]),
-                high=np.concatenate([[self.num_agents - 1, 7, 7, 8, 8], np.tile([798, 500, 1, 5, 1, 100], self.num_agents)]),
-                shape=agent_obs_shape)     
-
+            low=np.concatenate([[0, 0, 0, 0, 0], np.tile([100, 120, -1, 0, 0, -1], self.num_agents)]).astype(np.float64),
+            high=np.concatenate([[self.num_agents - 1, 7, 7, 8, 8], np.tile([798, 500, 1, 5, 1, 100], self.num_agents)]).astype(np.float64),
+            shape=agent_obs_shape,
+            dtype=np.float64
+)
         # Define action space for each agent
         # 0 Stop, 1 Vorwärts, 2 Rückwärts                
         # self.action_space = gym.spaces.Dict({
@@ -77,7 +75,7 @@ class PlantSimAGVMA(MultiAgentEnv):
         # })
         self.action_space = gym.spaces.Discrete(3)
 
-    def with_agent_groups(self, groups: Dict[str, List[AgentID]], obs_space: Space = None, act_space: Space = None) -> MultiAgentEnv:            
+    def with_agent_groups(self, groups: Dict[str, List[AgentID]], obs_space: None, act_space: None) -> MultiAgentEnv:            
         from gym.spaces import Tuple
         if obs_space is None:
             obs_space = Tuple([self.observation_space for _ in range(self.num_agents)])
@@ -100,7 +98,7 @@ class PlantSimAGVMA(MultiAgentEnv):
         truncated = False
     
         # Check that actions are provided for all agents
-        assert set(actions.keys()) == set([f"agent_{i}" for i in range(self.num_agents)])
+        assert set(actions.keys()) == self._agent_ids
 
         # Execute actions for each agent
         # Actions: 0 - Angehalten, 1 - Vorwärts, 2 - Rückwärts
@@ -221,12 +219,15 @@ class PlantSimAGVMA(MultiAgentEnv):
                 break
         
         obs = self.get_observation()
+        print("reset observation types:")
+        for agent_id, ob in obs.items():
+            print(f"Agent {agent_id} observation type: {type(ob)}, dtype: {ob.dtype}")
 
         info = {}
         #print ("Reset-State: ", self.state)
 
         # Return the initial observations and info for all agents
-        return obs, info
+        return {agent_id: obs[agent_id] for agent_id in self._agent_ids}, info
 
 
     def render(self):
@@ -239,3 +240,18 @@ class PlantSimAGVMA(MultiAgentEnv):
         #self.PlantSim.CloseModel()
         self.PlantSim.Quit()
 
+    def observation_space_sample(self):
+        """Returns a sample from the observation space."""
+        return {agent_id: self.observation_space.sample() for agent_id in self._agent_ids}
+
+    def observation_space_contains(self, obs):
+        """Check if `obs` is in the observation space."""
+        return all(self.observation_space.contains(o) for o in obs.values())
+
+    def action_space_sample(self, unbekannteszweitesargument):
+        # Generiert eine zufällige Aktion für den spezifischen Agenten basierend auf seiner Agenten-ID
+        return {agent_id: self.action_space.sample() for agent_id in self._agent_ids}
+
+    def action_space_contains(self, action):
+        """Check if `action` is in the action space."""
+        return all(self.action_space.contains(a) for a in action.values())
