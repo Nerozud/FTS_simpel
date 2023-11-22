@@ -219,9 +219,10 @@ class PlantSimAGVMA(MultiAgentEnv):
                 break
         
         obs = self.get_observation()
-        print("reset observation types:")
-        for agent_id, ob in obs.items():
-            print(f"Agent {agent_id} observation type: {type(ob)}, dtype: {ob.dtype}")
+        
+        # print("reset observation types:")
+        # for agent_id, ob in obs.items():
+        #     print(f"Agent {agent_id} observation type: {type(ob)}, dtype: {ob.dtype}")
 
         info = {}
         #print ("Reset-State: ", self.state)
