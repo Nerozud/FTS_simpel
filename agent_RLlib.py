@@ -12,7 +12,7 @@ from ray.tune.stopper import (CombinedStopper, MaximumIterationStopper, TrialPla
 import os
 
 stopper = CombinedStopper(
-    MaximumIterationStopper(max_iter=1000),
+    MaximumIterationStopper(max_iter=500),
     #TrialPlateauStopper(metric="episode_reward_mean", std=0.2, num_results=100),
 )
 
@@ -36,11 +36,11 @@ pbt_ppo = PopulationBasedTraining(
 
 def tune_with_callback():    
     tuner = tune.Tuner(
-        "PPO", # "DQN", "PPO", "QMIX"
+        "PPO", # "DQN", "PPO", "QMIX", "SAC"
         param_space=config,
         tune_config=tune.TuneConfig(
-            max_concurrent_trials = 2,
-            # num_samples = 30,            
+            max_concurrent_trials = 3,
+            num_samples = 3,            
             #time_budget_s=3600*24*1, # 1 day
             # scheduler=pbt_ppo,
             # search_alg= BayesOptSearch(metric="episode_reward_mean", 
@@ -128,49 +128,64 @@ def get_dqn_multiagent_config():
     return config
 
 def get_ppo_multiagent_config():
-    from ray.rllib.algorithms.ppo import PPOConfig # .resources(num_gpus=1) müsste GPU aktivieren, funktioniert aber noch nicht
+    from ray.rllib.algorithms.ppo import PPOConfig 
     config = PPOConfig().environment(
         env="PlantSimAGVMA", env_config={"num_agents": 2, "enable_grouping": False}
         ).resources(
-        #num_gpus=1
-        ).framework("torch").training(         
+        #num_gpus=1,
+        #num_gpus_per_learner_worker=0.2,
+        ).framework(
+            "torch"
+            #"tf2"
+            ).training(         
         #sgd_minibatch_size=tune.grid_search([1024, 2048, 4000]),
         train_batch_size=4000,
         sgd_minibatch_size=4000,
         # num_sgd_iter=tune.randint(3, 30),
         num_sgd_iter=10,
-        model={"fcnet_hiddens": [64, 64],
-            #"_disable_preprocessor_api": True,
-            "use_lstm": tune.grid_search([True, False]), 
-            "lstm_cell_size": 64,
-            "lstm_use_prev_action": True,
-            "lstm_use_prev_reward": True,
-            "vf_share_layers": False,
-},
-        # clip_param=tune.uniform(0.1, 0.3),
-        # lr=tune.uniform(0.000005, 0.001),
+#         model={"fcnet_hiddens": tune.grid_search([[64, 64], [128, 128]]),
+#             #"_disable_preprocessor_api": True,
+#             "use_lstm": tune.grid_search([True, False]), 
+#             "lstm_cell_size": 64,
+#             "lstm_use_prev_action": True,
+#             "lstm_use_prev_reward": True,
+#             "vf_share_layers": tune.grid_search([True, False]),
+# },
+        #clip_param=tune.grid_search([0.05, 0.2]),
+        #lr=tune.grid_search([0.0001, 0.0003, 0.0005]),
         # kl_coeff=tune.uniform(0.3, 1), 
         # kl_target=tune.uniform(0.003, 0.03),
         # gamma=tune.uniform(0.8, 0.9997),
         # lambda_=tune.uniform(0.9, 1),
         # vf_loss_coeff=tune.uniform(0.5, 1),
-        # entropy_coeff=tune.uniform(0.001, 0.01)
-        clip_param=0.2,
-        lr=0.0003,
-        kl_coeff=0.5, 
-        kl_target=0.01,
-        gamma=0.99,
-        lambda_=0.95,
-        vf_loss_coeff=0.9,
-        entropy_coeff=0.001,
+        #entropy_coeff=tune.grid_search([0.001, 0.003, 0.01]),
+        #clip_param=0.2,
+        #lr=0.0003,
+        # kl_coeff=0.5, 
+        # kl_target=0.01,
+        # gamma=0.99,
+        # lambda_=0.95,
+        # vf_loss_coeff=0.9,
+        #entropy_coeff=0.001,
 
-        optimizer={ "adam_epsilon": 1e-5,
-                    "beta1": 0.99,
-                    "beta2": 0.99,
-        },
+        # optimizer={ "adam_epsilon": 1e-5,
+        #             "beta1": 0.99,
+        #             "beta2": 0.99,
+        # },
         ).multi_agent(  policies={"agv_policy": (None, None, None, {})} ,
                         policy_mapping_fn= policy_mapping_fn)
-    config ["batch_mode"] = "complete_episodes"
+    #config ["batch_mode"] = "complete_episodes"
+    return config
+
+def get_sac_multiagent_config():
+    from ray.rllib.algorithms.sac import SACConfig 
+    config = SACConfig().environment(
+        env="PlantSimAGVMA", env_config={"num_agents": 2, "enable_grouping": False}
+        ).training(
+            train_batch_size=1024,
+            #train_batch_size=tune.grid_search([256, 4000]),
+        ).multi_agent(  policies={"agv_policy": (None, None, None, {})} ,
+                        policy_mapping_fn= policy_mapping_fn)
     return config
 
 def get_qmix_config():

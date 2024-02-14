@@ -42,8 +42,8 @@ class PlantSimAGVMA(MultiAgentEnv):
         
         # PlantSim-Input definieren: 
             # 1 ID des betrachteten Agenten, beginnend bei 0
-            # 2 Station A Belegt, 
-            # 3 Station B Belegt, 
+            # 2 Station A Zustand, 
+            # 3 Station B Zustand, 
             # 4 Puffer1 AnzahlBEs
             # 5 Puffer2 AnzahlBEs
             # 6 AGV 1 XPos,

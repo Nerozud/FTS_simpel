@@ -13,4 +13,5 @@ print(f"Device 0: {device_name}")
 
 
 # import torch
-# torch.cuda.is_available()
+# print(torch.cuda.is_available())
+# print(torch.cuda.device_count())
