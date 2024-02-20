@@ -1,6 +1,6 @@
 from env_AGVsimple_multiagent import PlantSimAGVMA
 #from env_AGVsimple_gymnasium import PlantSimAGVsimple
-import numpy as np
+
 import ray
 from ray import tune, air
 from ray.tune.registry import register_env
@@ -12,7 +12,7 @@ from ray.tune.stopper import (CombinedStopper, MaximumIterationStopper, TrialPla
 import os
 
 stopper = CombinedStopper(
-    MaximumIterationStopper(max_iter=500),
+    MaximumIterationStopper(max_iter=1000),
     #TrialPlateauStopper(metric="episode_reward_mean", std=0.2, num_results=100),
 )
 
@@ -143,6 +143,11 @@ def get_ppo_multiagent_config():
         sgd_minibatch_size=4000,
         # num_sgd_iter=tune.randint(3, 30),
         num_sgd_iter=10,
+        model={"fcnet_hiddens": [64, 64],
+               "use_lstm": True,
+               "lstm_cell_size": 64,
+               "lstm_use_prev_action": True,
+               "lstm_use_prev_reward": True,},
 #         model={"fcnet_hiddens": tune.grid_search([[64, 64], [128, 128]]),
 #             #"_disable_preprocessor_api": True,
 #             "use_lstm": tune.grid_search([True, False]), 
@@ -159,14 +164,23 @@ def get_ppo_multiagent_config():
         # lambda_=tune.uniform(0.9, 1),
         # vf_loss_coeff=tune.uniform(0.5, 1),
         #entropy_coeff=tune.grid_search([0.001, 0.003, 0.01]),
-        #clip_param=0.2,
-        #lr=0.0003,
+        clip_param=0.2,
+        lr=0.0003,
         # kl_coeff=0.5, 
         # kl_target=0.01,
-        # gamma=0.99,
-        # lambda_=0.95,
+        gamma=0.99,
+        lambda_=0.95,
         # vf_loss_coeff=0.9,
-        #entropy_coeff=0.001,
+        entropy_coeff=0.01,
+
+
+        # clip_param=0.1749080237694725,
+        # lr= 0.0001789604184437574, 
+        # kl_coeff= 0.7190609389379257, 
+        # kl_target= 0.007212503291945786, 
+        # gamma= 0.9461791901797376, 
+        # lambda_= 0.9155994520336204, 
+        # entropy_coeff= 0.009507143064099164,
 
         # optimizer={ "adam_epsilon": 1e-5,
         #             "beta1": 0.99,
@@ -252,6 +266,6 @@ if __name__ == '__main__':
     #     print(algo.train())
 
     # Test.
-    # checkpoint_path = "./trained_models/PPO/PPO_1a5e7_00000/checkpoint_001900"
+    # checkpoint_path = "trained_models/PPO_2024-02-19_19-10-25/PPO_27f22_00001/checkpoint_000018" #nur ein Fahrzeug fährt
     # test_trained_model(checkpoint_path)
  

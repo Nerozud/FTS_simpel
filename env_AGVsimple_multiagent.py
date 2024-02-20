@@ -53,21 +53,37 @@ class PlantSimAGVMA(MultiAgentEnv):
             # 10 AGV 1 Inhalt: 0 = beladen, 1 = leer
             # 11 AGV 1 Distanz zum Zielort: - 1 = keine Route, 0 = am Zielort, > 0 = Distanz zum Zielort
 
-        # Define the observation shape for each agent
-        agent_obs_shape = (5 + 6 * self.num_agents,)
-
         # Define the observation space as a dictionary mapping agent names to their observations
         # The observations are defined as Box spaces with low and high values for each input
         # The low and high values for the AGV specific inputs are tiled according to the number of agents
         # The shape of each observation is set to the agent_obs_shape defined earlier
         # The dtype is set to np.float32
 
-        self.observation_space = spaces.Box(
-            low=np.concatenate([[0, 0, 0, 0, 0], np.tile([100, 120, -1, 0, 0, -1], self.num_agents)]).astype(np.float64),
-            high=np.concatenate([[self.num_agents - 1, 7, 7, 8, 8], np.tile([798, 500, 1, 5, 1, 100], self.num_agents)]).astype(np.float64),
-            shape=agent_obs_shape,
-            dtype=np.float64
-)
+        # Define the observation shape for each agent
+        # agent_obs_shape = (5 + 6 * self.num_agents,)
+
+        # self.observation_space = spaces.Box(
+        #     low=np.concatenate([[0, 0, 0, 0, 0], np.tile([100, 120, -1, 0, 0, -1], self.num_agents)]).astype(np.float64),
+        #     high=np.concatenate([[self.num_agents - 1, 7, 7, 8, 8], np.tile([798, 500, 1, 5, 1, 100], self.num_agents)]).astype(np.float64),
+        #     shape=agent_obs_shape,
+        #     dtype=np.float64
+        # )
+        
+        # Definieren der statischen Teile des Beobachtungsraums
+        static_parts = [self.num_agents, 8, 8, 9, 9]
+
+        # Definieren der dynamischen Teile des Beobachtungsraums, die sich auf jeden Agenten beziehen
+        dynamic_parts = np.tile([799, 501, 3, 6, 2], self.num_agents)
+
+        # Zusammenführen der statischen und dynamischen Teile zu einem flachen Array
+        observation_space_array = np.concatenate([static_parts, dynamic_parts], dtype=np.int64)
+
+        #print("observation_space_array: ", observation_space_array)
+
+        
+        # Erstellen des MultiDiscrete Beobachtungsraums mit dem flachen Array
+        self.observation_space = spaces.MultiDiscrete(observation_space_array, dtype=np.int64)
+
         # Define action space for each agent
         # 0 Stop, 1 Vorwärts, 2 Rückwärts                
         # self.action_space = gym.spaces.Dict({
@@ -173,18 +189,30 @@ class PlantSimAGVMA(MultiAgentEnv):
             for j in range(self.num_agents): 
                 obs_list.append(self.PlantSim.GetValue(f".BEs.Fahrzeug:{j+1}.XPos"))
                 obs_list.append(self.PlantSim.GetValue(f".BEs.Fahrzeug:{j+1}.YPos"))
-                obs_list.append(self.PlantSim.GetValue(f".BEs.Fahrzeug:{j+1}.Momentangeschw"))
+
+                #obs_list.append(self.PlantSim.GetValue(f".BEs.Fahrzeug:{j+1}.Momentangeschw"))
+                geschwindigkeit = self.PlantSim.GetValue(f".BEs.Fahrzeug:{j+1}.Momentangeschw")
+                if geschwindigkeit == 0:
+                    geschwindigkeits_kategorie = 0
+                elif geschwindigkeit > 0:
+                    geschwindigkeits_kategorie = 1
+                else:  # Geschwindigkeit < 0
+                    geschwindigkeits_kategorie = 2
+            
+                # Hinzufügen der diskretisierten Geschwindigkeit zur Beobachtungsliste
+                obs_list.append(geschwindigkeits_kategorie)
+                
                 zielort_value = self.PlantSim.GetValue(f".BEs.Fahrzeug:{j+1}.Zielort")
                 if zielort_value is None: #Wenn Zielort kein String, leeren String draus machen
                     zielort_value = ""        
                 zielort = zielort_mapping.get(zielort_value if len(zielort_value) > 0 else "", -1) #Wenn Zielort leer ist, dann "" als Key verwenden
                 obs_list.append(zielort)
                 obs_list.append(self.PlantSim.GetValue(f".BEs.Fahrzeug:{j+1}.leer"))
-                obs_list.append(self.PlantSim.GetValue(f".Modelle.Modell.agent{j+1}_route_length"))
+                #obs_list.append(self.PlantSim.GetValue(f".Modelle.Modell.agent{j+1}_route_length"))
 
 
             # Convert the list to a numpy array and assign it to the agent's key
-            obs[f"agent_{i}"] = np.array(obs_list)
+            obs[f"agent_{i}"] = np.array(obs_list, dtype=np.int64)
             
         return obs
 
@@ -228,7 +256,8 @@ class PlantSimAGVMA(MultiAgentEnv):
         #print ("Reset-State: ", self.state)
 
         # Return the initial observations and info for all agents
-        return {agent_id: obs[agent_id] for agent_id in self._agent_ids}, info
+        #return {agent_id: obs[agent_id] for agent_id in self._agent_ids}, info
+        return obs, info
 
 
     def render(self):
