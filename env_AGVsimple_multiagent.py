@@ -71,6 +71,8 @@ class PlantSimAGVMA(MultiAgentEnv):
         
         # Definieren der statischen Teile des Beobachtungsraums
         static_parts = [self.num_agents, 8, 8, 9, 9]
+        # ohne Agenten ID
+        #static_parts = [8, 8, 9, 9]
 
         # Definieren der dynamischen Teile des Beobachtungsraums, die sich auf jeden Agenten beziehen
         dynamic_parts = np.tile([799, 501, 3, 6, 2], self.num_agents)
@@ -185,6 +187,12 @@ class PlantSimAGVMA(MultiAgentEnv):
                         station_b_val,
                         puffer1_val,
                         puffer2_val]
+            
+            #ohne Agenten ID
+            # obs_list = [station_a_val,
+            #             station_b_val,
+            #             puffer1_val,
+            #             puffer2_val]
             # Append the observations for each agent to the list
             for j in range(self.num_agents): 
                 obs_list.append(self.PlantSim.GetValue(f".BEs.Fahrzeug:{j+1}.XPos"))
