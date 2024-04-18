@@ -132,22 +132,22 @@ def get_ppo_multiagent_config():
     config = PPOConfig().environment(
         env="PlantSimAGVMA", env_config={"num_agents": 2, "enable_grouping": False}
         ).resources(
-        num_gpus=1,
+        #num_gpus=1,
         #num_gpus_per_learner_worker=0.2,
         ).framework(
             "torch"
             #"tf2"
             ).training(         
         #sgd_minibatch_size=tune.grid_search([1024, 2048, 4000]),
-        #train_batch_size=4000,
-        #sgd_minibatch_size=4000,
+        train_batch_size=8192,
+        sgd_minibatch_size=8192,
         # num_sgd_iter=tune.randint(3, 30),
-        #num_sgd_iter=10,
-        # model={"fcnet_hiddens": [64, 64],
-        #        "use_lstm": True,
-        #        "lstm_cell_size": 64,
-        #        "lstm_use_prev_action": True,
-        #        "lstm_use_prev_reward": True,},
+        num_sgd_iter=10,
+        model={"fcnet_hiddens": [64, 64],
+               "use_lstm": True,
+               "lstm_cell_size": 64,
+               "lstm_use_prev_action": True,
+               "lstm_use_prev_reward": True,},
 #         model={"fcnet_hiddens": tune.grid_search([[64, 64], [128, 128]]),
 #             #"_disable_preprocessor_api": True,
 #             "use_lstm": tune.grid_search([True, False]), 
@@ -164,14 +164,14 @@ def get_ppo_multiagent_config():
         # lambda_=tune.uniform(0.9, 1),
         # vf_loss_coeff=tune.uniform(0.5, 1),
         #entropy_coeff=tune.grid_search([0.001, 0.003, 0.01]),
-        #clip_param=0.2,
-        #lr=0.0003,
+        clip_param=0.2,
+        lr=0.0005,
         # kl_coeff=0.5, 
         # kl_target=0.01,
-        #gamma=0.99,
-        #lambda_=0.95,
+        gamma=0.99,
+        lambda_=0.95,
         # vf_loss_coeff=0.9,
-        #entropy_coeff=0.01,
+        entropy_coeff=0.01,
 
 
         # clip_param=0.1749080237694725,
@@ -182,13 +182,14 @@ def get_ppo_multiagent_config():
         # lambda_= 0.9155994520336204, 
         # entropy_coeff= 0.009507143064099164,
 
-        # optimizer={ "adam_epsilon": 1e-5,
-        #             "beta1": 0.99,
-        #             "beta2": 0.99,
-        # },
+        optimizer={ "adam_epsilon": 1e-5,
+                    # "beta1": 0.99,
+                    # "beta2": 0.99,
+        },
         ).multi_agent(  policies={"agv_policy": (None, None, None, {})} ,
                         policy_mapping_fn= policy_mapping_fn)
     #config ["batch_mode"] = "complete_episodes"
+    #config["num_envs_per_worker"] = 8
     return config
 
 def get_sac_multiagent_config():
@@ -254,16 +255,16 @@ if __name__ == '__main__':
     config = get_ppo_multiagent_config()
 
     # Tune. Für Hyperparametersuche mit tune
-    tune_with_callback()
+    #tune_with_callback()
 
     # Resume.
-    # tune.run(restore="trained_models\PPO_2024-02-21_11-28-46\PPO_fec65_00000\checkpoint_000019",
-    #          run_or_experiment="PPO",
-    #          config=config,
-    #          stop={"training_iteration": 2000},
-    #          num_samples=3,
-    #          callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-test")],
-    #          )
+    tune.run(restore="trained_models\PPO_2024-02-21_11-28-46\PPO_fec65_00000\checkpoint_000019",
+             run_or_experiment="PPO",
+             config=config,
+             stop={"training_iteration": 2000},
+             num_samples=3,
+             callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-test")],
+             )
 
     # Build & Train. Einfach einen Algorithmus erstellen und trainieren
     # algo = config.build()
