@@ -63,6 +63,7 @@ def tune_with_callback():
         ),
         run_config=air.RunConfig(
             local_dir=os.path.abspath("./trained_models"),
+            storage_path=os.path.abspath("./trained_models"),
             checkpoint_config=air.CheckpointConfig(
                 checkpoint_frequency=50,
                 checkpoint_at_end=False,
@@ -258,7 +259,7 @@ if __name__ == '__main__':
     #tune_with_callback()
 
     # Resume.
-    tune.run(restore="trained_models\PPO_2024-02-21_11-28-46\PPO_fec65_00000\checkpoint_000019",
+    tune.run(restore="trained_models\PPO_2024-04-16_14-24-57\PPO_56862_00002\checkpoint_000019",
              run_or_experiment="PPO",
              config=config,
              stop={"training_iteration": 2000},
