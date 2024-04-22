@@ -11,6 +11,8 @@ from ray.tune.stopper import (CombinedStopper, MaximumIterationStopper, TrialPla
 
 import os
 
+import numpy as np
+
 stopper = CombinedStopper(
     MaximumIterationStopper(max_iter=1000),
     #TrialPlateauStopper(metric="episode_reward_mean", std=0.2, num_results=100),
@@ -83,31 +85,46 @@ def trial_str_creator(trial):
 
 def test_trained_model(checkpoint_path, num_episodes=10):
     from ray.rllib.algorithms.algorithm import Algorithm
+    import torch
 
+    # Initialize the RLlib Algorithm from a checkpoint.
     algo = Algorithm.from_checkpoint(checkpoint_path)
     
-    # Get the policy using the policy_id
-    policy_id = "agv_policy"
+    # Create your custom environment.
     env = env_creator({"num_agents": 2})
     env.render()
-    for i in range(num_episodes):        
+
+    for episode in range(num_episodes):
         obs = env.reset()[0]
-        print(f"Initial observation: {obs}")
         done = {'__all__': False}
-        episode_reward = 0        
-        while not done['__all__']:
-            """ Compute actions for each agent """
-            actions = dict()
-            #print("Type of actions:", type(actions))
+        episode_reward = 0
+
+        state_list = {agent_id: [torch.zeros(64), torch.zeros(64)] for agent_id in obs}
+        initial_state_list = state_list
+
+        actions = {agent_id: 0 for agent_id in obs}
+        rewards = {agent_id: 0.0 for agent_id in obs}
+
+        next_state_list = {}
+
+        while not done['__all__']:            
             for j in range(2):
-                actions[f"agent_{j}"] = algo.compute_single_action(obs[f"agent_{j}"], policy_id=policy_id, explore=False)
-            #print(f"Actions: {actions}")
-                
+                actions[f"agent_{j}"], next_state_list[f"agent_{j}"], _ = algo.compute_single_action(obs[f"agent_{j}"],
+                                                                   state=state_list[f"agent_{j}"],
+                                                                   policy_id="agv_policy",
+                                                                   prev_action=actions[f"agent_{j}"],
+                                                                   prev_reward=rewards[f"agent_{j}"],  
+                                                                   explore=True)
+
+            # Step the environment.
             obs, rewards, done, truncated, info = env.step(actions)
-            #print(f"done: {done}, rewards: {rewards}")
             episode_reward += sum(rewards.values())
-        
-        print(f"Episode {i + 1} reward: {episode_reward}")
+
+            # Update states for all agents.
+            state_list = next_state_list
+
+        state_list = initial_state_list
+        print(f"Episode {episode + 1} reward: {episode_reward}")
 
 def get_dqn_multiagent_config():
     from ray.rllib.algorithms.dqn.dqn import DQNConfig
@@ -260,11 +277,19 @@ if __name__ == '__main__':
 
     # Resume.
     tune.run(restore="trained_models\PPO_2024-04-16_14-24-57\PPO_56862_00002\checkpoint_000019",
+             storage_path=os.path.abspath("./trained_models"),
              run_or_experiment="PPO",
              config=config,
              stop={"training_iteration": 2000},
              num_samples=3,
              callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-test")],
+             checkpoint_config=air.CheckpointConfig(
+                checkpoint_frequency=50,
+                checkpoint_at_end=False,
+                checkpoint_score_order="max",
+                checkpoint_score_attribute="episode_reward_mean",
+                num_to_keep=5
+                ),             
              )
 
     # Build & Train. Einfach einen Algorithmus erstellen und trainieren
@@ -273,6 +298,6 @@ if __name__ == '__main__':
     #     print(algo.train())
 
     # Test.
-    # checkpoint_path = "trained_models\PPO_2024-02-20_13-50-49\PPO_ac492_00002\checkpoint_000019" #nur ein Fahrzeug fährt
+    # checkpoint_path = "trained_models\PPO_2024-04-16_14-24-57\PPO_56862_00002\checkpoint_000019" 
     # test_trained_model(checkpoint_path)
  
