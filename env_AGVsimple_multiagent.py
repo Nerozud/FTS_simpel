@@ -262,7 +262,7 @@ class PlantSimAGVMA(MultiAgentEnv):
 
     def close(self):
         """Closes the environment."""
-        #self.PlantSim.CloseModel()
+        self.PlantSim.CloseModel()
         self.PlantSim.Quit()
 
     def observation_space_sample(self):
