@@ -1,4 +1,5 @@
-from env_AGVsimple_multiagent import PlantSimAGVMA
+from env_AGVsimple_POMDP import PlantSimAGVMA
+#from env_AGVsimple_multiagent import PlantSimAGVMA
 #from env_AGVsimple_gymnasium import PlantSimAGVsimple
 
 import ray
@@ -14,7 +15,7 @@ import os
 import numpy as np
 
 stopper = CombinedStopper(
-    MaximumIterationStopper(max_iter=1000),
+    MaximumIterationStopper(max_iter=300),
     #TrialPlateauStopper(metric="episode_reward_mean", std=0.2, num_results=100),
 )
 
@@ -260,8 +261,8 @@ if __name__ == '__main__':
     config = get_ppo_multiagent_config()
 
     #config ["batch_mode"] = "complete_episodes"
-    config["num_envs_per_worker"] = 8
-    config["num_env_runners"] = 8
+    config["num_envs_per_worker"] = 4
+    config["num_env_runners"] = 2
     config["num_rollout_workers"] = 8
     config["restart_failed_sub_environments"] = True
     #config["monitor"] = True
