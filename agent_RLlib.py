@@ -157,8 +157,8 @@ def get_ppo_multiagent_config():
             #"tf2"
             ).training(         
         #sgd_minibatch_size=tune.grid_search([1024, 2048, 4000]),
-        train_batch_size=4000*8,
-        sgd_minibatch_size=4000*8,
+        train_batch_size=25000,
+        sgd_minibatch_size=25000,
         # num_sgd_iter=tune.randint(3, 30),
         num_sgd_iter=10,
         model={"fcnet_hiddens": [64, 64],
@@ -261,10 +261,12 @@ if __name__ == '__main__':
     config = get_ppo_multiagent_config()
 
     #config ["batch_mode"] = "complete_episodes"
+
     config["num_envs_per_worker"] = 4
     config["num_env_runners"] = 2
     config["num_rollout_workers"] = 8
     config["restart_failed_sub_environments"] = True
+
     #config["monitor"] = True
 
     # Tune. Für Hyperparametersuche mit tune
@@ -293,6 +295,9 @@ if __name__ == '__main__':
     #     print(algo.train())
 
     # Test.
-    # checkpoint_path = "trained_models\PPO_2024-04-22_15-44-30\PPO_PlantSimAGVMA_719c2_00001_1_2024-04-22_15-44-30\checkpoint_000017" 
+    #checkpoint_path = "trained_models\PPO_2024-04-22_15-44-30\PPO_PlantSimAGVMA_719c2_00001_1_2024-04-22_15-44-30\checkpoint_000017" 
+    
+    # checkpoint_path = "trained_models\PPO_2024-05-21_18-15-13\PPO_4dee8_00000\checkpoint_000005" # good, 2 agents
+    #checkpoint_path = "trained_models\PPO_2024-05-13_11-27-15\PPO_fc969_00001\checkpoint_000005" # local optimum, 3 agents
     # test_trained_model(checkpoint_path)
  

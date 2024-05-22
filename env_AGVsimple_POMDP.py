@@ -42,8 +42,8 @@ class PlantSimAGVMA(MultiAgentEnv):
         
         # PlantSim-Input definieren: 
             # 1 ID des betrachteten Agenten, beginnend bei 0
-            # 2 AGV XPos,
-            # 3 AGV YPos,
+            # 2 AGV XPos,  --> Object ID of location
+            # 3 AGV YPos, --> relative position on path
             # 4 AGV Geschwindigkeit, 
             # 5 AGV Zielort: 0 = void, 1 = Station A, 2 = Station B, 3 = Senke, 4 = Puffer1, 5 = Puffer2
             # 6 AGV Inhalt: 0 = beladen, 1 = leer
@@ -51,9 +51,9 @@ class PlantSimAGVMA(MultiAgentEnv):
             # 8 AGV X Distance to next AGV
             # 9 AGV Y Distance to next AGV
         
-        # Erstellen des MultiDiscrete Beobachtungsraums mit dem flachen Array
-        self.observation_space = spaces.MultiDiscrete([self.num_agents, 799, 501, 3, 6, 2, 100, 700, 400])
+        #self.observation_space = spaces.MultiDiscrete([self.num_agents, 799, 501, 3, 6, 2, 100, 700, 400])
 
+        self.observation_space = spaces.MultiDiscrete([9, 15, 3, 6, 2, 60, 10, 10])
         # Define action space
         # 0 Stop, 1 Vorwärts, 2 Rückwärts    
         self.action_space = gym.spaces.Discrete(3)
@@ -138,14 +138,29 @@ class PlantSimAGVMA(MultiAgentEnv):
                            "*.Modelle.Modell.Puffer1": 4, 
                            "*.Modelle.Modell.Puffer2": 5} # mit * ist korrekt
         
+        path_mapping = {    
+                        "*.Modelle.Modell.WegQuelle1": 0, 
+                        "*.Modelle.Modell.WegQuelle2": 1, 
+                        "*.Modelle.Modell.Weg1": 2, 
+                        "*.Modelle.Modell.Weg2": 3, 
+                        "*.Modelle.Modell.Weg3": 4,
+                        "*.Modelle.Modell.Weg4": 5,
+                        "*.Modelle.Modell.WegStationA": 6,
+                        "*.Modelle.Modell.WegStationB": 7,
+                        "*.Modelle.Modell.WegSenke": 8,
+                        }
+        
         # Collect positions of all agents
         for i in range(self.num_agents):
-            x_pos = self.PlantSim.GetValue(f".BEs.Fahrzeug:{i+1}.XPos")
-            y_pos = self.PlantSim.GetValue(f".BEs.Fahrzeug:{i+1}.YPos")
+            #x_pos = self.PlantSim.GetValue(f".BEs.Fahrzeug:{i+1}.XPos")
+            x_pos = path_mapping.get(self.PlantSim.GetValue(f".BEs.Fahrzeug:{i+1}.Standort"), -1)
+            #y_pos = self.PlantSim.GetValue(f".BEs.Fahrzeug:{i+1}.YPos")
+            y_pos = round(self.PlantSim.GetValue(f".BEs.Fahrzeug:{i+1}.BuchPos"))
             positions[i] = (x_pos, y_pos)
 
         for i in range(self.num_agents):
-            obs_list = [i]
+            obs_list = [] # ohne AgentenID
+            #obs_list = [i]
 
             x_pos, y_pos = positions[i]
             obs_list.append(x_pos)
@@ -180,8 +195,12 @@ class PlantSimAGVMA(MultiAgentEnv):
                     distance = np.sqrt((x_pos - other_x) ** 2 + (y_pos - other_y) ** 2)
                     if distance < min_dist:
                         min_dist = distance
-                        nearest_x = abs(other_x - x_pos)
-                        nearest_y = abs(other_y - y_pos)
+                        nearest_x = abs(other_x - x_pos)/20 # coords to meters
+                        nearest_y = abs(other_y - y_pos)/20 # coords to meters
+                        if nearest_x > 10:
+                            nearest_x = 10
+                        if nearest_y > 10:
+                            nearest_y = 10
 
             # Append nearest AGV x and y distances
             obs_list.extend([round(nearest_x), round(nearest_y)])
