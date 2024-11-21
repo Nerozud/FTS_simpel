@@ -7,11 +7,12 @@ from ray import air, tune
 from ray.air.integrations.wandb import WandbLoggerCallback
 from ray.tune.registry import register_env
 from ray.tune.schedulers import PopulationBasedTraining
-from ray.tune.search.bayesopt import BayesOptSearch
+
+# from ray.tune.search.bayesopt import BayesOptSearch
 from ray.tune.stopper import (
     CombinedStopper,
     MaximumIterationStopper,
-    TrialPlateauStopper,
+    # TrialPlateauStopper,
 )
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.algorithms.dqn.dqn import DQNConfig
@@ -108,13 +109,13 @@ def trial_str_creator(trial):
     return f"{trial.trainable_name}_{trial.trial_id}"
 
 
-def test_trained_model(checkpoint_path, num_episodes=10):
+def test_trained_model(cp_path, num_episodes=10):
     """
     Test a trained model with a given checkpoint path
     """
 
     # Initialize the RLlib Algorithm from a checkpoint.
-    algo = Algorithm.from_checkpoint(checkpoint_path)
+    algo = Algorithm.from_checkpoint(cp_path)
 
     # Create your custom environment.
     env = env_creator({"num_agents": 2})
@@ -125,7 +126,9 @@ def test_trained_model(checkpoint_path, num_episodes=10):
         done = {"__all__": False}
         episode_reward = 0
 
-        state_list = {agent_id: [torch.zeros(64), torch.zeros(64)] for agent_id in obs}
+        state_list = {
+            agent_id: [torch.zeros(128), torch.zeros(128)] for agent_id in obs
+        }
         initial_state_list = state_list
 
         actions = {agent_id: 0 for agent_id in obs}
@@ -194,7 +197,7 @@ def get_ppo_multiagent_config():
     config = (
         PPOConfig()
         .environment(
-            env="PlantSimAGVMA", env_config={"num_agents": 2, "enable_grouping": False}
+            env="PlantSimAGVMA", env_config={"num_agents": 3, "enable_grouping": False}
         )
         .resources(
             num_gpus=1,
@@ -211,9 +214,9 @@ def get_ppo_multiagent_config():
             # num_sgd_iter=tune.randint(3, 30),
             num_sgd_iter=10,
             model={
-                "fcnet_hiddens": [64, 64],
+                "fcnet_hiddens": [128, 128],
                 "use_lstm": True,
-                "lstm_cell_size": 64,
+                "lstm_cell_size": 128,
                 "lstm_use_prev_action": True,
                 "lstm_use_prev_reward": True,
             },
@@ -302,38 +305,14 @@ def policy_mapping_fn(agent_id, episode, worker, **kwargs):
     return "agv_policy"
 
 
+def env_creator(env_config):
+    """Create an environment instance."""
+    return PlantSimAGVMA(env_config)
+
+
 if __name__ == "__main__":
 
     # Init.
-    def env_creator(env_config):
-        """Create an environment instance."""
-        return PlantSimAGVMA(env_config)
-
-    # def env_creator(env_config):
-    #     """Create an environment instance."""
-    #     env = PlantSimAGVMA(env_config)
-
-    #     # If agent grouping is enabled in env_config...
-    #     if env_config.get("enable_grouping", False):
-
-    #         # Get the number of agents from env_config
-    #         num_agents = env_config.get("num_agents")
-
-    #         # Define agent groups, observation spaces, and action spaces
-    #         groups = {"group_1": [f"agent_{i}" for i in range(num_agents)]}
-    #         group_obs_space = spaces.Tuple(
-    #             env.observation_space for _ in range(num_agents)
-    #         )
-    #         group_action_space = spaces.Tuple(
-    #             env.action_space for _ in range(num_agents)
-    #         )
-
-    #         # Group agents
-    #         env = env.with_agent_groups(
-    #             groups, obs_space=group_obs_space, act_space=group_action_space
-    #         )
-    #     return env
-
     register_env("PlantSimAGVMA", env_creator)
     ray.init()
 
@@ -350,24 +329,26 @@ if __name__ == "__main__":
     # config["monitor"] = True
 
     # Tune. Für Hyperparametersuche mit tune
-    tune_with_callback()
+    # tune_with_callback()
 
     # Resume.
-    # tune.run(restore="trained_models\PPO_2024-04-16_14-24-57\PPO_56862_00002\checkpoint_000019",
-    #          storage_path=os.path.abspath("./trained_models"),
-    #          run_or_experiment="PPO",
-    #          config=config,
-    #          stop={"training_iteration": 2000},
-    #          num_samples=3,
-    #          callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-test")],
-    #          checkpoint_config=air.CheckpointConfig(
-    #             checkpoint_frequency=50,
-    #             checkpoint_at_end=False,
-    #             checkpoint_score_order="max",
-    #             checkpoint_score_attribute="episode_reward_mean",
-    #             num_to_keep=5
-    #             ),
-    #          )
+    tune.run(
+        restore="trained_models\PPO_2024-05-31_11-10-31\PPO_a1a2c_00006\checkpoint_000005",
+        storage_path=os.path.abspath("./trained_models"),
+        run_or_experiment="PPO",
+        config=config,
+        stop={"training_iteration": 2000},
+        num_samples=3,
+        max_concurrent_trials=1,
+        callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-test")],
+        checkpoint_config=air.CheckpointConfig(
+            checkpoint_frequency=50,
+            checkpoint_at_end=False,
+            checkpoint_score_order="max",
+            checkpoint_score_attribute="episode_reward_mean",
+            num_to_keep=5,
+        ),
+    )
 
     # Build & Train. Einfach einen Algorithmus erstellen und trainieren
     # algo = config.build()
@@ -379,4 +360,5 @@ if __name__ == "__main__":
 
     # checkpoint_path = "trained_models\PPO_2024-05-21_18-15-13\PPO_4dee8_00000\checkpoint_000005" # good, 2 agents
     # checkpoint_path = "trained_models\PPO_2024-05-13_11-27-15\PPO_fc969_00001\checkpoint_000005" # local optimum, 3 agents
-    # test_trained_model(checkpoint_path)
+    # CHECKPOINT_PATH = "trained_models\PPO_2024-05-31_11-10-31\PPO_a1a2c_00006\checkpoint_000005"  # 3 agents, room for improvement?
+    # test_trained_model(CHECKPOINT_PATH)

@@ -72,7 +72,7 @@ class PlantSimAGVMA(MultiAgentEnv):
         self.action_space = gym.spaces.Discrete(3)
 
     def seed(self, seed=None):
-        """Setzen der Zufallszahlengenerator-Seed"""
+        """Get the seed for the environment."""
         seed = self.plant_sim.GetValue(
             ".Modelle.Modell.Ereignisverwalter.ZufallszahlenVariante"
         )
@@ -145,18 +145,6 @@ class PlantSimAGVMA(MultiAgentEnv):
             "*.Modelle.Modell.Puffer1": 4,
             "*.Modelle.Modell.Puffer2": 5,
         }  # mit * ist korrekt
-
-        # path_mapping = {
-        #     "*.Modelle.Modell.WegQuelle1": 0,
-        #     "*.Modelle.Modell.WegQuelle2": 1,
-        #     "*.Modelle.Modell.Weg1": 2,
-        #     "*.Modelle.Modell.Weg2": 3,
-        #     "*.Modelle.Modell.Weg3": 4,
-        #     "*.Modelle.Modell.Weg4": 5,
-        #     "*.Modelle.Modell.WegStationA": 6,
-        #     "*.Modelle.Modell.WegStationB": 7,
-        #     "*.Modelle.Modell.WegSenke": 8,
-        # }
 
         # Collect positions of all agents
         for i in range(self.num_agents):
