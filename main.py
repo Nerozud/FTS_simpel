@@ -17,6 +17,7 @@ from ray.tune.stopper import (
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.algorithms.dqn.dqn import DQNConfig
 from ray.rllib.algorithms.sac import SACConfig
+from ray.rllib.algorithms.impala import IMPALAConfig
 
 from ray.rllib.algorithms.algorithm import Algorithm
 import torch
@@ -29,7 +30,7 @@ from env_agv_simple_pomdp import PlantSimAGVMA
 
 
 stopper = CombinedStopper(
-    MaximumIterationStopper(max_iter=300),
+    MaximumIterationStopper(max_iter=500),
     # TrialPlateauStopper(metric="episode_reward_mean", std=0.2, num_results=100),
 )
 
@@ -58,11 +59,11 @@ def tune_with_callback():
     Tune with callback for logging to wandb
     """
     tuner = tune.Tuner(
-        "PPO",  # "DQN", "PPO", "QMIX", "SAC"
+        "DQN",  # "DQN", "PPO", "IMPALA", "SAC"
         param_space=config,
         tune_config=tune.TuneConfig(
             max_concurrent_trials=1,
-            num_samples=10,
+            num_samples=1,
             # time_budget_s=3600*24*1, # 1 day
             # scheduler=pbt_ppo,
             # search_alg= BayesOptSearch(metric="episode_reward_mean",
@@ -83,18 +84,22 @@ def tune_with_callback():
             trial_dirname_creator=trial_str_creator,
         ),
         run_config=air.RunConfig(
-            local_dir=os.path.abspath("./trained_models"),
             storage_path=os.path.abspath("./trained_models"),
             checkpoint_config=air.CheckpointConfig(
                 checkpoint_frequency=50,
                 checkpoint_at_end=False,
                 checkpoint_score_order="max",
-                checkpoint_score_attribute="episode_reward_mean",
+                checkpoint_score_attribute="env_runners/episode_reward_mean",
                 num_to_keep=5,
             ),
-            # stop={"episode_reward_mean": 30, "timesteps_total": 1000000},
-            stop=stopper,
-            callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-test")],
+            stop={"env_runners/episode_reward_mean": 30, "time_total_s": 3600 * 18},
+            # stop=stopper,
+            callbacks=[
+                WandbLoggerCallback(
+                    project="agvs-simple-ppo-test",
+                    dir=os.path.abspath("./experiments"),
+                )
+            ],
         ),
     )
     tuner.fit()
@@ -124,9 +129,7 @@ def test_trained_model(cp_path, num_episodes=10):
         done = {"__all__": False}
         episode_reward = 0
 
-        state_list = {
-            agent_id: [torch.zeros(128), torch.zeros(128)] for agent_id in obs
-        }
+        state_list = {agent_id: [torch.zeros(64), torch.zeros(64)] for agent_id in obs}
         initial_state_list = state_list
 
         actions = {agent_id: 0 for agent_id in obs}
@@ -161,24 +164,38 @@ def get_dqn_multiagent_config():
     """Get the DQN multiagent config"""
     config = (
         DQNConfig()
-        .environment(env="PlantSimAGVMA", env_config={"num_agents": 2})
+        .environment(env="PlantSimAGVMA", env_config={"num_agents": 3})
         .framework("torch")
+        .resources(num_gpus=1)
+        .env_runners(
+            num_env_runners=8,
+            num_envs_per_worker=2,
+            sample_timeout_s=300,
+        )
         .training(
             replay_buffer_config={
-                "type": "ReplayBuffer",
-                "capacity": tune.choice([100000, 1000000]),
+                "type": "MultiAgentPrioritizedReplayBuffer",
+                "capacity": 500000,
+                "prioritized_replay_alpha": 0.5,
             },
-            lr=tune.uniform(1e-4, 1e-2),
-            gamma=tune.uniform(0.9, 0.999),
-            train_batch_size=tune.choice([32, 64, 128, 256, 512, 1024, 2048]),
-            target_network_update_freq=tune.choice([100, 500, 1000, 2000, 5000, 10000]),
+            # train_batch_size=512,
+            # lr=tune.uniform(1e-4, 1e-2),
+            gamma=0.99,
+            # -- rainbow settings
+            noisy=True,
+            n_step=3,
+            num_atoms=51,
+            lr=0.0001,
+            hiddens=[512],
+            v_min=-400.0,
+            v_max=32.0,
         )
         .exploration(
             exploration_config={
                 "type": "EpsilonGreedy",
-                "warmup_timesteps": tune.randint(0, 100000),
-                "epsilon_timesteps": tune.randint(50000, 500000),
-                "final_epsilon": tune.uniform(0.001, 0.01),
+                "warmup_timesteps": 100000,
+                "epsilon_timesteps": 1900000,
+                "final_epsilon": 0.0,
             }
         )
         .multi_agent(
@@ -186,6 +203,42 @@ def get_dqn_multiagent_config():
             policy_mapping_fn=policy_mapping_fn,
         )
     )
+    return config
+
+
+def get_impala_multiagent_config():
+    """Get the IMPALA multiagent config"""
+    config = (
+        IMPALAConfig()
+        .environment(env="PlantSimAGVMA", env_config={"num_agents": 3})
+        .resources(num_gpus=1)
+        .env_runners(
+            num_env_runners=8,
+            num_envs_per_worker=2,
+            sample_timeout_s=300,
+        )
+        .framework("torch")
+        .training(
+            train_batch_size=500,
+            train_batch_size_per_learner=500,
+            lr=0.001,
+            gamma=0.99,
+            vf_loss_coeff=0.5,
+            entropy_coeff=0.01,
+            model={
+                "fcnet_hiddens": [128, 128],
+                "use_lstm": True,
+                "lstm_cell_size": 128,
+                "lstm_use_prev_action": True,
+                "lstm_use_prev_reward": True,
+            },
+        )
+        .multi_agent(
+            policies={"agv_policy": (None, None, None, {})},
+            policy_mapping_fn=policy_mapping_fn,
+        )
+    )
+
     return config
 
 
@@ -207,14 +260,14 @@ def get_ppo_multiagent_config():
         )
         .training(
             # sgd_minibatch_size=tune.grid_search([1024, 2048, 4000]),
-            train_batch_size=25000,
-            sgd_minibatch_size=25000,
+            train_batch_size=16000,
+            sgd_minibatch_size=16000,
             # num_sgd_iter=tune.randint(3, 30),
             num_sgd_iter=10,
             model={
-                "fcnet_hiddens": [64, 64],
+                "fcnet_hiddens": [128, 128],
                 "use_lstm": True,
-                "lstm_cell_size": 64,
+                "lstm_cell_size": 128,
                 "lstm_use_prev_action": True,
                 "lstm_use_prev_reward": True,
             },
@@ -234,8 +287,8 @@ def get_ppo_multiagent_config():
             # lambda_=tune.uniform(0.9, 1),
             # vf_loss_coeff=tune.uniform(0.5, 1),
             # entropy_coeff=tune.grid_search([0.001, 0.003, 0.01]),
-            clip_param=0.2,
-            lr=0.0005,
+            clip_param=0.05,
+            lr=0.001,
             # kl_coeff=0.5,
             # kl_target=0.01,
             gamma=0.99,
@@ -243,7 +296,7 @@ def get_ppo_multiagent_config():
             # vf_loss_coeff=0.9,
             entropy_coeff=0.01,
             optimizer={
-                "adam_epsilon": 1e-5,
+                # "adam_epsilon": 1e-5,
                 # "beta1": 0.99,
                 # "beta2": 0.99,
             },
@@ -292,38 +345,33 @@ if __name__ == "__main__":
     ray.init()
 
     # Configure.
-    config = get_ppo_multiagent_config()
+    config = get_dqn_multiagent_config()
 
     # config ["batch_mode"] = "complete_episodes"
-
-    config["num_envs_per_worker"] = 4
-    config["num_env_runners"] = 2
-    config["num_rollout_workers"] = 8
-    config["restart_failed_sub_environments"] = True
 
     # config["monitor"] = True
 
     # Tune. Für Hyperparametersuche mit tune
-    # tune_with_callback()
+    tune_with_callback()
 
     # Resume.
-    tune.run(
-        restore="trained_models\PPO_2024-05-31_11-10-31\PPO_a1a2c_00006\checkpoint_000005",
-        storage_path=os.path.abspath("./trained_models"),
-        run_or_experiment="PPO",
-        config=config,
-        stop={"training_iteration": 2000},
-        num_samples=3,
-        max_concurrent_trials=1,
-        callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-test")],
-        checkpoint_config=air.CheckpointConfig(
-            checkpoint_frequency=50,
-            checkpoint_at_end=False,
-            checkpoint_score_order="max",
-            checkpoint_score_attribute="episode_reward_mean",
-            num_to_keep=5,
-        ),
-    )
+    # tune.run(
+    #     restore="trained_models\PPO_2024-05-31_11-10-31\PPO_a1a2c_00006\checkpoint_000005",
+    #     storage_path=os.path.abspath("./trained_models"),
+    #     run_or_experiment="PPO",
+    #     config=config,
+    #     stop={"training_iteration": 2000},
+    #     num_samples=3,
+    #     max_concurrent_trials=1,
+    #     callbacks=[WandbLoggerCallback(project="agvs-simple-ppo-test")],
+    #     checkpoint_config=air.CheckpointConfig(
+    #         checkpoint_frequency=50,
+    #         checkpoint_at_end=False,
+    #         checkpoint_score_order="max",
+    #         checkpoint_score_attribute="episode_reward_mean",
+    #         num_to_keep=5,
+    #     ),
+    # )
 
     # Build & Train. Einfach einen Algorithmus erstellen und trainieren
     # algo = config.build()

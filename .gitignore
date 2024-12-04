@@ -1,3 +1,4 @@
 trained_models/
 __pycache__/
 yolov5/
+experiments/
