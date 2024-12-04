@@ -7,6 +7,7 @@ from ray import air, tune
 from ray.air.integrations.wandb import WandbLoggerCallback
 from ray.tune.registry import register_env
 from ray.tune.schedulers import PopulationBasedTraining
+from ray.tune.schedulers.pb2 import PB2
 
 # from ray.tune.search.bayesopt import BayesOptSearch
 from ray.tune.stopper import (
@@ -34,75 +35,40 @@ stopper = CombinedStopper(
     # TrialPlateauStopper(metric="episode_reward_mean", std=0.2, num_results=100),
 )
 
-pbt_ppo = PopulationBasedTraining(
+pbt = PopulationBasedTraining(
     time_attr="training_iteration",
-    metric="episode_reward_mean",
+    metric="env_runners/episode_reward_max",
     mode="max",
     perturbation_interval=50,
     hyperparam_mutations={
         # "sgd_minibatch_size": tune.randint(4, 4000),
         # "num_sgd_iter": tune.randint(3, 30),
-        "clip_param": tune.uniform(0.1, 0.3),
-        "lr": tune.uniform(0.000005, 0.003),
-        "kl_coeff": tune.uniform(0.3, 1),
-        "kl_target": tune.uniform(0.003, 0.03),
-        "gamma": tune.uniform(0.8, 0.9997),
-        "lambda_": tune.uniform(0.9, 1),
-        "vf_loss_coeff": tune.uniform(0.5, 1),
+        # "clip_param": tune.uniform(0.1, 0.3),
+        "lr": tune.uniform(0.000005, 0.001),
+        # "kl_coeff": tune.uniform(0.3, 1),
+        # "kl_target": tune.uniform(0.003, 0.03),
+        # "gamma": tune.uniform(0.8, 0.9997),
+        # "lambda_": tune.uniform(0.9, 1),
+        "vf_loss_coeff": tune.uniform(0, 1),
         "entropy_coeff": tune.uniform(0, 0.01),
+        "train_batch_size": [32, 500, 1024, 2048, 4000],
+        "gamma": [0.999, 0.99, 0.95, 0.9],
     },
 )
 
-
-def tune_with_callback():
-    """
-    Tune with callback for logging to wandb
-    """
-    tuner = tune.Tuner(
-        "DQN",  # "DQN", "PPO", "IMPALA", "SAC"
-        param_space=config,
-        tune_config=tune.TuneConfig(
-            max_concurrent_trials=1,
-            num_samples=1,
-            # time_budget_s=3600*24*1, # 1 day
-            # scheduler=pbt_ppo,
-            # search_alg= BayesOptSearch(metric="episode_reward_mean",
-            #                            mode="max",
-            #                            random_search_steps=0,
-            #                            utility_kwargs={"kind": "ucb", "kappa": 0.5, "xi": 0.0},
-            #                            points_to_evaluate=[{"clip_param": 0.1749080237694725,
-            #                                                 "lr": 0.0001789604184437574,
-            #                                                 "kl_coeff": 0.7190609389379257,
-            #                                                 "kl_target": 0.007212503291945786,
-            #                                                 "gamma": 0.9461791901797376,
-            #                                                 "lambda_": 0.9155994520336204,
-            #                                                 "vf_loss_coeff": 0.9330880728874676,
-            #                                                 "entropy_coeff": 0.009507143064099164}],
-            #                             verbose=2
-            #                             ),
-            trial_name_creator=trial_str_creator,
-            trial_dirname_creator=trial_str_creator,
-        ),
-        run_config=air.RunConfig(
-            storage_path=os.path.abspath("./trained_models"),
-            checkpoint_config=air.CheckpointConfig(
-                checkpoint_frequency=50,
-                checkpoint_at_end=False,
-                checkpoint_score_order="max",
-                checkpoint_score_attribute="env_runners/episode_reward_mean",
-                num_to_keep=5,
-            ),
-            stop={"env_runners/episode_reward_mean": 30, "time_total_s": 3600 * 18},
-            # stop=stopper,
-            callbacks=[
-                WandbLoggerCallback(
-                    project="agvs-simple-ppo-test",
-                    dir=os.path.abspath("./experiments"),
-                )
-            ],
-        ),
-    )
-    tuner.fit()
+pb2 = PB2(
+    time_attr="training_iteration",
+    metric="env_runners/episode_reward_max",
+    mode="max",
+    perturbation_interval=50,
+    hyperparam_bounds={
+        "lr": [0.000005, 0.001],
+        "vf_loss_coeff": [0, 1],
+        "entropy_coeff": [0, 0.02],
+        "train_batch_size": [32, 8000],
+        "gamma": [0.9, 0.999],
+    },
+)
 
 
 def trial_str_creator(trial):
@@ -169,7 +135,7 @@ def get_dqn_multiagent_config():
         .resources(num_gpus=1)
         .env_runners(
             num_env_runners=8,
-            num_envs_per_worker=2,
+            num_envs_per_env_runner=2,
             sample_timeout_s=300,
         )
         .training(
@@ -178,7 +144,7 @@ def get_dqn_multiagent_config():
                 "capacity": 500000,
                 "prioritized_replay_alpha": 0.5,
             },
-            # train_batch_size=512,
+            train_batch_size=512,
             # lr=tune.uniform(1e-4, 1e-2),
             gamma=0.99,
             # -- rainbow settings
@@ -187,8 +153,8 @@ def get_dqn_multiagent_config():
             num_atoms=51,
             lr=0.0001,
             hiddens=[512],
-            v_min=-400.0,
-            v_max=32.0,
+            v_min=-1500,
+            v_max=32,
         )
         .exploration(
             exploration_config={
@@ -213,8 +179,8 @@ def get_impala_multiagent_config():
         .environment(env="PlantSimAGVMA", env_config={"num_agents": 3})
         .resources(num_gpus=1)
         .env_runners(
-            num_env_runners=8,
-            num_envs_per_worker=2,
+            # num_env_runners=8,
+            # num_envs_per_worker=2,
             sample_timeout_s=300,
         )
         .framework("torch")
@@ -338,6 +304,57 @@ def env_creator(env_config):
     return PlantSimAGVMA(env_config)
 
 
+def tune_with_callback():
+    """
+    Tune with callback for logging to wandb
+    """
+    tuner = tune.Tuner(
+        "IMPALA",  # "DQN", "PPO", "IMPALA", "SAC"
+        param_space=config,
+        tune_config=tune.TuneConfig(
+            # max_concurrent_trials=10,
+            num_samples=10,
+            # time_budget_s=3600*24*1, # 1 day
+            scheduler=pb2,
+            # search_alg= BayesOptSearch(metric="episode_reward_mean",
+            #                            mode="max",
+            #                            random_search_steps=0,
+            #                            utility_kwargs={"kind": "ucb", "kappa": 0.5, "xi": 0.0},
+            #                            points_to_evaluate=[{"clip_param": 0.1749080237694725,
+            #                                                 "lr": 0.0001789604184437574,
+            #                                                 "kl_coeff": 0.7190609389379257,
+            #                                                 "kl_target": 0.007212503291945786,
+            #                                                 "gamma": 0.9461791901797376,
+            #                                                 "lambda_": 0.9155994520336204,
+            #                                                 "vf_loss_coeff": 0.9330880728874676,
+            #                                                 "entropy_coeff": 0.009507143064099164}],
+            #                             verbose=2
+            #                             ),
+            trial_name_creator=trial_str_creator,
+            trial_dirname_creator=trial_str_creator,
+        ),
+        run_config=air.RunConfig(
+            storage_path=os.path.abspath("./trained_models"),
+            checkpoint_config=air.CheckpointConfig(
+                checkpoint_frequency=50,
+                checkpoint_at_end=False,
+                checkpoint_score_order="max",
+                checkpoint_score_attribute="env_runners/episode_reward_mean",
+                num_to_keep=5,
+            ),
+            stop={"env_runners/episode_reward_mean": 30, "time_total_s": 3600 * 18},
+            # stop=stopper,
+            callbacks=[
+                WandbLoggerCallback(
+                    project="agvs-simple-pbt",
+                    dir=os.path.abspath("./experiments"),
+                )
+            ],
+        ),
+    )
+    tuner.fit()
+
+
 if __name__ == "__main__":
     # neuer Text zum testen
     # Init.
@@ -345,7 +362,7 @@ if __name__ == "__main__":
     ray.init()
 
     # Configure.
-    config = get_dqn_multiagent_config()
+    config = get_impala_multiagent_config()
 
     # config ["batch_mode"] = "complete_episodes"
 
