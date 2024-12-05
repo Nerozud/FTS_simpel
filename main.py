@@ -179,8 +179,8 @@ def get_impala_multiagent_config():
         .environment(env="PlantSimAGVMA", env_config={"num_agents": 3})
         .resources(num_gpus=1)
         .env_runners(
-            # num_env_runners=8,
-            # num_envs_per_worker=2,
+            num_env_runners=8,
+            num_envs_per_worker=2,
             sample_timeout_s=300,
         )
         .framework("torch")
@@ -310,7 +310,23 @@ def tune_with_callback():
     """
     tuner = tune.Tuner(
         "IMPALA",  # "DQN", "PPO", "IMPALA", "SAC"
-        param_space=config,
+        # param_space=config,
+        param_space={
+            "env": "PlantSimAGVMA",
+            "env_config": {"num_agents": 3},
+            "model": {
+                "fcnet_hiddens": [128, 128],
+                "use_lstm": True,
+                "lstm_cell_size": 128,
+                "lstm_use_prev_action": True,
+                "lstm_use_prev_reward": True,
+            },
+            "num_env_runners": 8,
+            "num_envs_per_env_runner": 2,
+            "sample_timeout_s": 300,
+            "policies": {"agv_policy": (None, None, None, {})},
+            "policy_mapping_fn": policy_mapping_fn,
+        },
         tune_config=tune.TuneConfig(
             # max_concurrent_trials=10,
             num_samples=10,
