@@ -39,7 +39,7 @@ pbt = PopulationBasedTraining(
     time_attr="training_iteration",
     metric="env_runners/episode_reward_max",
     mode="max",
-    perturbation_interval=50,
+    perturbation_interval=20,
     hyperparam_mutations={
         # "sgd_minibatch_size": tune.randint(4, 4000),
         # "num_sgd_iter": tune.randint(3, 30),
@@ -50,7 +50,7 @@ pbt = PopulationBasedTraining(
         # "gamma": tune.uniform(0.8, 0.9997),
         # "lambda_": tune.uniform(0.9, 1),
         "vf_loss_coeff": tune.uniform(0, 1),
-        "entropy_coeff": tune.uniform(0, 0.01),
+        "entropy_coeff": tune.uniform(0, 0.02),
         "train_batch_size": [32, 500, 1024, 2048, 4000],
         "gamma": [0.999, 0.99, 0.95, 0.9],
     },
@@ -179,8 +179,8 @@ def get_impala_multiagent_config():
         .environment(env="PlantSimAGVMA", env_config={"num_agents": 3})
         .resources(num_gpus=1)
         .env_runners(
-            num_env_runners=8,
-            num_envs_per_worker=2,
+            # num_env_runners=8,
+            # num_envs_per_worker=2,
             sample_timeout_s=300,
         )
         .framework("torch")
@@ -261,11 +261,6 @@ def get_ppo_multiagent_config():
             lambda_=0.95,
             # vf_loss_coeff=0.9,
             entropy_coeff=0.01,
-            optimizer={
-                # "adam_epsilon": 1e-5,
-                # "beta1": 0.99,
-                # "beta2": 0.99,
-            },
         )
         .multi_agent(
             policies={"agv_policy": (None, None, None, {})},
@@ -322,15 +317,20 @@ def tune_with_callback():
                 "lstm_use_prev_reward": True,
             },
             "num_env_runners": 8,
-            "num_envs_per_env_runner": 2,
+            # "num_envs_per_env_runner": 2,
             "sample_timeout_s": 300,
             "policies": {"agv_policy": (None, None, None, {})},
             "policy_mapping_fn": policy_mapping_fn,
         },
         tune_config=tune.TuneConfig(
-            # max_concurrent_trials=10,
-            num_samples=10,
-            # time_budget_s=3600*24*1, # 1 day
+            # max_concurrent_trials=3,
+            num_samples=8,
+            ### add for reuse_actors to your Rllib algorithm (for example impala.py):
+            #### reset_config(self, new_config: dict):
+            #### self.config = IMPALAConfig()
+            #### self.config.update_from_dict(new_config)
+            reuse_actors=True,
+            time_budget_s=3600 * 24 * 1,  # 1 day
             scheduler=pb2,
             # search_alg= BayesOptSearch(metric="episode_reward_mean",
             #                            mode="max",
