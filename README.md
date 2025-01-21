@@ -21,7 +21,7 @@ This is a single-agent environment that also simulates an AGV system with deadlo
 ## Requirements
 
 - Python 3.x
-- Ray 2.8.0
+- Ray 2.35.0 (recommended)
 - Gymnasium
 - Plant Simulation > 2201
 
