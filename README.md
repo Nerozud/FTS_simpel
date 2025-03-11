@@ -33,7 +33,7 @@ This directory is used to store experiment data, including logs and results.
 ## Requirements
 
 - Python 3.x
-- Ray 2.35.0
+- Ray 2.35.0 (recommended)
 - Gymnasium
 - Plant Simulation > 2201
 - PyTorch (for CUDA testing)
