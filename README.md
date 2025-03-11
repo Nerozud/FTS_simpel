@@ -6,25 +6,38 @@ This repository contains Python scripts that demonstrate how to use Plant Simula
 
 ## Files Included
 
-### `agent_RLlib.py`
+### `main.py`
 
-This file contains the RL agent implemented using Ray's RLlib. The agent can be configured to work with one of the two environments provided in this repository.
+This file is the main entry point for training and testing multi-agent reinforcement learning models using Ray RLlib.
+
+### `env_AGVsimple_gymnasium.py`
+
+This is a single-agent environment that simulates an AGV system with deadlock capabilities. It is implemented using the Gymnasium framework.
 
 ### `env_AGVsimple_multiagent.py`
 
 This is a multi-agent environment that simulates an AGV system with deadlock capabilities. It is implemented using the Gymnasium framework and is compatible with Ray's MultiAgentEnv.
 
-### `env_AGVsimple_gymnasium.py`
+### `env_agv_simple_pomdp.py`
 
-This is a single-agent environment that also simulates an AGV system with deadlock capabilities. It is implemented using the Gymnasium framework.
+This file contains another multi-agent environment for AGV systems, implemented using the Gymnasium framework and compatible with Ray's MultiAgentEnv.
+
+### `simulation_models/`
+
+This directory contains various simulation model files used by the environments.
+
+### `experiments/`
+
+This directory is used to store experiment data, including logs and results.
 
 ## Requirements
 
 - Python 3.x
-- Ray 2.8.0
+- Ray 2.35.0
 - Gymnasium
 - Plant Simulation > 2201
+- PyTorch (for CUDA testing)
 
-## Contributing
 
-If you'd like to contribute, please fork the repository and use a feature branch. Pull requests are warmly welcome.
+
+PS: Sorry, everything is still messy, I hopefully will organize it soon. 

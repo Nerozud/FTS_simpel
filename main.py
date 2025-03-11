@@ -60,7 +60,7 @@ pb2 = PB2(
     time_attr="training_iteration",
     metric="env_runners/episode_reward_max",
     mode="max",
-    perturbation_interval=50,
+    perturbation_interval=10,
     hyperparam_bounds={
         "lr": [0.000005, 0.001],
         "vf_loss_coeff": [0, 1],
@@ -316,11 +316,12 @@ def tune_with_callback():
                 "lstm_use_prev_action": True,
                 "lstm_use_prev_reward": True,
             },
-            "num_env_runners": 8,
+            "num_env_runners": 5,
             # "num_envs_per_env_runner": 2,
             "sample_timeout_s": 300,
             "policies": {"agv_policy": (None, None, None, {})},
             "policy_mapping_fn": policy_mapping_fn,
+            "batch_mode": "complete_episodes",
         },
         tune_config=tune.TuneConfig(
             # max_concurrent_trials=3,
@@ -329,8 +330,8 @@ def tune_with_callback():
             #### reset_config(self, new_config: dict):
             #### self.config = IMPALAConfig()
             #### self.config.update_from_dict(new_config)
-            reuse_actors=True,
-            time_budget_s=3600 * 24 * 1,  # 1 day
+            reuse_actors=False,
+            # time_budget_s=3600 * 24 * 1,  # 1 day
             scheduler=pb2,
             # search_alg= BayesOptSearch(metric="episode_reward_mean",
             #                            mode="max",
@@ -352,7 +353,7 @@ def tune_with_callback():
         run_config=air.RunConfig(
             storage_path=os.path.abspath("./trained_models"),
             checkpoint_config=air.CheckpointConfig(
-                checkpoint_frequency=50,
+                checkpoint_frequency=10,
                 checkpoint_at_end=False,
                 checkpoint_score_order="max",
                 checkpoint_score_attribute="env_runners/episode_reward_mean",
